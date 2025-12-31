@@ -1,7 +1,6 @@
 import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -11,6 +10,7 @@ import { assertNever } from "./internal/assertNever";
 import { invariant } from "./internal/invariant";
 import { LayoutManager } from "./internal/LayoutManager/LayoutManager";
 import type { Direction } from "./internal/LayoutManager/types";
+import { useCursor } from "./internal/useCursor";
 import { useEventListener } from "./internal/useEventListener";
 import type {
   LayoutManagerOptions,
@@ -82,10 +82,9 @@ export function useDockLayout<T extends HTMLElement>(
     setResizingRect(null);
   });
 
-  useEffect(() => {
-    document.body.style.cursor =
-      resizingRect === null ? "default" : CURSORS[resizingRect.orientation];
-  }, [resizingRect]);
+  useCursor(
+    resizingRect === null ? "default" : CURSORS[resizingRect.orientation],
+  );
 
   return {
     containerRef,
