@@ -102,7 +102,6 @@ export function useDockLayout<T extends HTMLElement>(
   return {
     containerRef,
     layoutRects,
-    layoutManager,
     getRectProps: (rect: LayoutRect) => {
       if (rect.type === "split") {
         return {
@@ -199,6 +198,9 @@ export function useDockLayout<T extends HTMLElement>(
       };
     },
     draggingRect,
+    addPanel: layoutManager.addPanel,
+    removePanel: layoutManager.removePanel,
+    serialize: layoutManager.serialize,
   };
 }
 

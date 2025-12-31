@@ -20,7 +20,9 @@ function loadInitialLayout() {
 
 export function App() {
   const {
-    layoutManager,
+    addPanel,
+    removePanel,
+    serialize,
     containerRef,
     layoutRects,
     draggingRect,
@@ -35,7 +37,7 @@ export function App() {
         <button
           type="button"
           onClick={() => {
-            layoutManager.addPanel();
+            addPanel();
           }}
         >
           Add panel
@@ -44,7 +46,7 @@ export function App() {
         <button
           type="button"
           onClick={() => {
-            localStorage.setItem("layout", layoutManager.serialize());
+            localStorage.setItem("layout", serialize());
           }}
         >
           Save to Local Storage
@@ -100,7 +102,7 @@ export function App() {
                 <button
                   type="button"
                   onClick={() => {
-                    layoutManager.removePanel(rect.id);
+                    removePanel(rect.id);
                   }}
                 >
                   Close Panel
