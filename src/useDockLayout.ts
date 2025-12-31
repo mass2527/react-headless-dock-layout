@@ -11,6 +11,7 @@ import { assertNever } from "./internal/assertNever";
 import { invariant } from "./internal/invariant";
 import { LayoutManager } from "./internal/LayoutManager/LayoutManager";
 import type { Direction } from "./internal/LayoutManager/types";
+import { useEventListener } from "./internal/useEventListener";
 import type {
   LayoutManagerOptions,
   LayoutNode,
@@ -67,32 +68,19 @@ export function useDockLayout<T extends HTMLElement>(
     };
   }, [layoutManager]);
 
-  useEffect(() => {
-    if (resizingRect === null) {
-      return;
-    }
+  useEventListener(document, "mousemove", (event) => {
+    if (resizingRect === null) return;
 
-    function handleMouseMove(event: MouseEvent) {
-      invariant(resizingRect !== null);
+    layoutManager.resizePanel(resizingRect.id, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+  });
 
-      layoutManager.resizePanel(resizingRect.id, {
-        x: event.clientX,
-        y: event.clientY,
-      });
-    }
-
-    function handleMouseUp() {
-      setResizingRect(null);
-    }
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [resizingRect, layoutManager]);
+  useEventListener(document, "mouseup", () => {
+    if (resizingRect === null) return;
+    setResizingRect(null);
+  });
 
   useEffect(() => {
     document.body.style.cursor =
@@ -115,9 +103,6 @@ export function useDockLayout<T extends HTMLElement>(
           },
           onMouseDown: () => {
             setResizingRect(rect);
-          },
-          onMouseUp: () => {
-            setResizingRect(null);
           },
         } as const;
       } else if (rect.type === "panel") {
