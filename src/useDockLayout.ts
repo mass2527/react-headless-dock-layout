@@ -1,17 +1,16 @@
 import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
-  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import { assertNever } from "./internal/assertNever";
-import { invariant } from "./internal/invariant";
 import { LayoutManager } from "./internal/LayoutManager/LayoutManager";
 import type { Direction } from "./internal/LayoutManager/types";
 import { useCursor } from "./internal/useCursor";
 import { useEventListener } from "./internal/useEventListener";
+import { useResizeObserver } from "./internal/useResizeObserver";
 import type {
   LayoutManagerOptions,
   LayoutNode,
@@ -43,30 +42,9 @@ export function useDockLayout<T extends HTMLElement>(
     direction: Direction;
   } | null>(null);
 
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    invariant(container !== null);
-
-    layoutManager.setSize({
-      width: container.clientWidth,
-      height: container.clientHeight,
-    });
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        layoutManager.setSize({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        });
-      }
-    });
-
-    resizeObserver.observe(container);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [layoutManager]);
+  useResizeObserver(containerRef, (size) => {
+    layoutManager.setSize(size);
+  });
 
   useEventListener(document, "mousemove", (event) => {
     if (resizingRect === null) return;
