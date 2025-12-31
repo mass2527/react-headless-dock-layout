@@ -27,10 +27,14 @@ export function useEventListener<K extends WindowEventName | DocumentEventName>(
   const latestListenerRef = useLatestRef(listener);
 
   useEffect(() => {
-    target.addEventListener(type, latestListenerRef.current, options);
+    function handleEvent(event: Event) {
+      latestListenerRef.current(event);
+    }
+
+    target.addEventListener(type, handleEvent, options);
 
     return () => {
-      target.removeEventListener(type, latestListenerRef.current, options);
+      target.removeEventListener(type, handleEvent, options);
     };
   }, [target, type, latestListenerRef, options]);
 }
