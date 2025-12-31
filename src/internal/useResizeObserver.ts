@@ -9,7 +9,10 @@ export function useResizeObserver<T extends HTMLElement>(
 
   useLayoutEffect(() => {
     const element = ref.current;
-    if (!element) return;
+
+    if (element === null) {
+      throw new Error("Ref is not attached to an element");
+    }
 
     latestOnResizeRef.current({
       width: element.clientWidth,
