@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
+import { useLatestRef } from "./useLatestRef";
 
 type WindowEventName = keyof WindowEventMap;
 type DocumentEventName = keyof DocumentEventMap;
@@ -23,21 +24,13 @@ export function useEventListener<K extends WindowEventName | DocumentEventName>(
   listener: (event: Event) => void,
   options?: boolean | AddEventListenerOptions,
 ): void {
-  const listenerRef = useRef(listener);
+  const latestListenerRef = useLatestRef(listener);
 
   useEffect(() => {
-    listenerRef.current = listener;
-  }, [listener]);
-
-  useEffect(() => {
-    const handler = (event: Event) => {
-      listenerRef.current(event);
-    };
-
-    target.addEventListener(type, handler, options);
+    target.addEventListener(type, latestListenerRef.current, options);
 
     return () => {
-      target.removeEventListener(type, handler, options);
+      target.removeEventListener(type, latestListenerRef.current, options);
     };
-  }, [target, type, options]);
+  }, [target, type, latestListenerRef, options]);
 }
