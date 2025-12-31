@@ -198,9 +198,9 @@ export function useDockLayout<T extends HTMLElement>(
       };
     },
     draggingRect,
-    addPanel: layoutManager.addPanel,
-    removePanel: layoutManager.removePanel,
-    serialize: layoutManager.serialize,
+    addPanel: layoutManager.addPanel.bind(layoutManager),
+    removePanel: layoutManager.removePanel.bind(layoutManager),
+    serialize: layoutManager.serialize.bind(layoutManager),
   };
 }
 
