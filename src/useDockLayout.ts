@@ -26,7 +26,6 @@ export function useDockLayout<T extends HTMLElement>(
   const [layoutManager] = useState(() => {
     return new LayoutManager(initialRoot, options);
   });
-  const containerRef = useRef<T>(null);
   const layoutRects = useSyncExternalStore(
     layoutManager.subscribe,
     () => layoutManager.layoutRects,
@@ -42,8 +41,11 @@ export function useDockLayout<T extends HTMLElement>(
     direction: Direction;
   } | null>(null);
 
-  useResizeObserver(containerRef, (size) => {
-    layoutManager.setSize(size);
+  const containerRef = useResizeObserver<T>((entry) => {
+    layoutManager.setSize({
+      width: entry.contentRect.width,
+      height: entry.contentRect.height,
+    });
   });
 
   useEventListener(document, "mousemove", (event) => {

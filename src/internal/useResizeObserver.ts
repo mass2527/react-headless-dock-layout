@@ -1,10 +1,10 @@
-import { type RefObject, useLayoutEffect } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { useLatestRef } from "./useLatestRef";
 
 export function useResizeObserver<T extends HTMLElement>(
-  ref: RefObject<T | null>,
-  onResize: (size: { width: number; height: number }) => void,
+  onResize: (entry: ResizeObserverEntry) => void,
 ) {
+  const ref = useRef<T>(null);
   const latestOnResizeRef = useLatestRef(onResize);
 
   useLayoutEffect(() => {
@@ -16,10 +16,7 @@ export function useResizeObserver<T extends HTMLElement>(
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        latestOnResizeRef.current({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        });
+        latestOnResizeRef.current(entry);
       }
     });
 
@@ -28,5 +25,7 @@ export function useResizeObserver<T extends HTMLElement>(
     return () => {
       resizeObserver.disconnect();
     };
-  }, [ref, latestOnResizeRef]);
+  }, [latestOnResizeRef]);
+
+  return ref;
 }
