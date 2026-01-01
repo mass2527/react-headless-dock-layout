@@ -14,11 +14,6 @@ export function useResizeObserver<T extends HTMLElement>(
       throw new Error("Ref is not attached to an element");
     }
 
-    latestOnResizeRef.current({
-      width: element.clientWidth,
-      height: element.clientHeight,
-    });
-
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         latestOnResizeRef.current({
