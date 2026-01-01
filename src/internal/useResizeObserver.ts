@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
-import { useLatestRef } from "./useLatestRef";
+import { useStableCallback } from "./useStableCallback";
 
 export function useResizeObserver<T extends HTMLElement>(
   onResize: (entry: ResizeObserverEntry) => void,
 ) {
   const ref = useRef<T>(null);
-  const latestOnResizeRef = useLatestRef(onResize);
+  const stableOnResize = useStableCallback(onResize);
 
   useEffect(() => {
     const element = ref.current;
@@ -16,7 +16,7 @@ export function useResizeObserver<T extends HTMLElement>(
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        latestOnResizeRef.current(entry);
+        stableOnResize(entry);
       }
     });
 
@@ -25,7 +25,7 @@ export function useResizeObserver<T extends HTMLElement>(
     return () => {
       resizeObserver.disconnect();
     };
-  }, [latestOnResizeRef]);
+  }, [stableOnResize]);
 
   return ref;
 }

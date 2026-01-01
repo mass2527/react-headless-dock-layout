@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLatestRef } from "./useLatestRef";
+import { useStableCallback } from "./useStableCallback";
 
 type WindowEventName = keyof WindowEventMap;
 type DocumentEventName = keyof DocumentEventMap;
@@ -24,17 +24,13 @@ export function useEventListener<K extends WindowEventName | DocumentEventName>(
   listener: (event: Event) => void,
   options?: boolean | AddEventListenerOptions,
 ): void {
-  const latestListenerRef = useLatestRef(listener);
+  const stableListener = useStableCallback(listener);
 
   useEffect(() => {
-    function handleEvent(event: Event) {
-      latestListenerRef.current(event);
-    }
-
-    target.addEventListener(type, handleEvent, options);
+    target.addEventListener(type, stableListener, options);
 
     return () => {
-      target.removeEventListener(type, handleEvent, options);
+      target.removeEventListener(type, stableListener, options);
     };
-  }, [target, type, latestListenerRef, options]);
+  }, [target, type, stableListener, options]);
 }
