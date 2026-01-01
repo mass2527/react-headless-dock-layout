@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useLatestRef } from "./useLatestRef";
 
 export function useResizeObserver<T extends HTMLElement>(
@@ -7,7 +7,7 @@ export function useResizeObserver<T extends HTMLElement>(
   const ref = useRef<T>(null);
   const latestOnResizeRef = useLatestRef(onResize);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const element = ref.current;
 
     if (element === null) {
