@@ -241,10 +241,6 @@ export class LayoutManager {
     }
   }
 
-  /**
-   /**
-    * The addPanelStrategy is used to determine panel placement when the `targetId` is `undefined`.
-    */
   addPanel(options?: {
     id?: string;
     targetId?: string;
