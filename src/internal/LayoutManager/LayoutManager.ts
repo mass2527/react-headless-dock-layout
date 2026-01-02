@@ -19,6 +19,9 @@ import { LayoutTree } from "./LayoutTree";
 import type { Direction, Point, Rect, Size } from "./types";
 
 export class LayoutManager {
+  private readonly MIN_RESIZE_RATIO = 0.1;
+  private readonly MAX_RESIZE_RATIO = 0.9;
+
   private _tree: LayoutTree;
   private _options: Required<LayoutManagerOptions>;
   private _listeners = new Set<() => void>();
@@ -226,7 +229,11 @@ export class LayoutManager {
       );
       const leftWidth = point.x - leftRect.x;
       const totalWidth = leftRect.width + resizingRect.width + rightRect.width;
-      const ratio = clamp(leftWidth / totalWidth, 0.1, 0.9);
+      const ratio = clamp(
+        leftWidth / totalWidth,
+        this.MIN_RESIZE_RATIO,
+        this.MAX_RESIZE_RATIO,
+      );
       this.setSplitRatio(resizingRect.id, ratio);
     } else if (resizingRect.orientation === "vertical") {
       const { left: topRect, right: bottomRect } = this.getSplitChildRects(
@@ -235,7 +242,11 @@ export class LayoutManager {
       const topHeight = point.y - topRect.y;
       const totalHeight =
         topRect.height + resizingRect.height + bottomRect.height;
-      const ratio = clamp(topHeight / totalHeight, 0.1, 0.9);
+      const ratio = clamp(
+        topHeight / totalHeight,
+        this.MIN_RESIZE_RATIO,
+        this.MAX_RESIZE_RATIO,
+      );
       this.setSplitRatio(resizingRect.id, ratio);
     } else {
       assertNever(resizingRect.orientation);
