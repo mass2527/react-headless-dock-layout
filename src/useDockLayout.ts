@@ -50,9 +50,17 @@ export function useDockLayout<T extends HTMLElement>(
   useEventListener(document, "mousemove", (event) => {
     if (resizingRect === null) return;
 
+    const container = containerRef.current;
+
+    if (container === null) {
+      throw new Error("containerRef is not attached to an element");
+    }
+
+    const rect = container.getBoundingClientRect();
+
     layoutManager.resizePanel(resizingRect.id, {
-      x: event.clientX,
-      y: event.clientY,
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
     });
   });
 
