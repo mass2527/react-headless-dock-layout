@@ -19,11 +19,13 @@ import type {
 } from "./types";
 
 export function useDockLayout<T extends HTMLElement>(
-  initialRoot: LayoutNode | null,
+  initialRoot: LayoutNode | null | (() => LayoutNode | null),
   options?: LayoutManagerOptions,
 ) {
   const [layoutManager] = useState(() => {
-    return new LayoutManager(initialRoot, options);
+    const root =
+      typeof initialRoot === "function" ? initialRoot() : initialRoot;
+    return new LayoutManager(root, options);
   });
   const layoutRects = useSyncExternalStore(
     layoutManager.subscribe,

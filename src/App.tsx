@@ -1,15 +1,6 @@
 import { assertNever } from "./internal/assertNever";
 import { useDockLayout } from "./useDockLayout";
 
-function getInitialRoot() {
-  console.info("working");
-  const root = localStorage.getItem("layout");
-  if (root === null) {
-    return null;
-  }
-  return JSON.parse(root);
-}
-
 export function App() {
   const {
     root,
@@ -21,7 +12,14 @@ export function App() {
     getRectProps,
     getDropZoneProps,
     getDragHandleProps,
-  } = useDockLayout<HTMLDivElement>(getInitialRoot());
+  } = useDockLayout<HTMLDivElement>(() => {
+    console.info("working");
+    const root = localStorage.getItem("layout");
+    if (root === null) {
+      return null;
+    }
+    return JSON.parse(root);
+  });
 
   return (
     <div>
