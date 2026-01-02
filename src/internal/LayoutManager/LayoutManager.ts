@@ -489,27 +489,29 @@ export class LayoutManager {
         width: rect.width,
         height: rect.height,
       };
-    }
+    } else if (node.type === "split") {
+      const leftRect = this.getSurroundingRect(node.left.id);
+      const rightRect = this.getSurroundingRect(node.right.id);
 
-    const leftRect = this.getSurroundingRect(node.left.id);
-    const rightRect = this.getSurroundingRect(node.right.id);
-
-    if (node.orientation === "horizontal") {
-      return {
-        x: leftRect.x,
-        y: leftRect.y,
-        width: leftRect.width + this._options.gap + rightRect.width,
-        height: leftRect.height,
-      };
-    } else if (node.orientation === "vertical") {
-      return {
-        x: leftRect.x,
-        y: leftRect.y,
-        width: leftRect.width,
-        height: leftRect.height + this._options.gap + rightRect.height,
-      };
+      if (node.orientation === "horizontal") {
+        return {
+          x: leftRect.x,
+          y: leftRect.y,
+          width: leftRect.width + this._options.gap + rightRect.width,
+          height: leftRect.height,
+        };
+      } else if (node.orientation === "vertical") {
+        return {
+          x: leftRect.x,
+          y: leftRect.y,
+          width: leftRect.width,
+          height: leftRect.height + this._options.gap + rightRect.height,
+        };
+      } else {
+        assertNever(node.orientation);
+      }
     } else {
-      assertNever(node.orientation);
+      assertNever(node);
     }
   }
 
