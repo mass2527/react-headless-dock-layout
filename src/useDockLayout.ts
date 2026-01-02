@@ -1,7 +1,6 @@
 import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
-  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -164,7 +163,7 @@ export function useDockLayout<T extends HTMLElement>(
     draggingRect,
     addPanel: layoutManager.addPanel.bind(layoutManager),
     removePanel: layoutManager.removePanel.bind(layoutManager),
-    serialize: layoutManager.serialize.bind(layoutManager),
+    root: layoutManager.root,
   };
 }
 

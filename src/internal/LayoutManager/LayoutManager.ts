@@ -326,15 +326,6 @@ export class LayoutManager {
     };
   }
 
-  serialize() {
-    return JSON.stringify({
-      root: this._tree.root,
-      options: {
-        gap: this._options.gap,
-      },
-    });
-  }
-
   private emit() {
     this._listeners.forEach((listener) => {
       listener();

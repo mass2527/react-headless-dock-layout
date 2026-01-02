@@ -1,35 +1,27 @@
-import type { LayoutNode } from ".";
 import { assertNever } from "./internal/assertNever";
 import { useDockLayout } from "./useDockLayout";
 
-const INITIAL_LAYOUT: LayoutNode | null = null;
-
-function loadInitialLayout() {
-  const savedLayout = localStorage.getItem("layout");
-  if (savedLayout === null) {
-    return INITIAL_LAYOUT;
+function getInitialRoot() {
+  console.info("working");
+  const root = localStorage.getItem("layout");
+  if (root === null) {
+    return null;
   }
-  try {
-    const parsed = JSON.parse(savedLayout);
-    return parsed.root;
-  } catch (error) {
-    console.error(error);
-    return INITIAL_LAYOUT;
-  }
+  return JSON.parse(root);
 }
 
 export function App() {
   const {
+    root,
     addPanel,
     removePanel,
-    serialize,
     containerRef,
     layoutRects,
     draggingRect,
     getRectProps,
     getDropZoneProps,
     getDragHandleProps,
-  } = useDockLayout<HTMLDivElement>(loadInitialLayout());
+  } = useDockLayout<HTMLDivElement>(getInitialRoot());
 
   return (
     <div>
@@ -46,7 +38,7 @@ export function App() {
         <button
           type="button"
           onClick={() => {
-            localStorage.setItem("layout", serialize());
+            localStorage.setItem("layout", JSON.stringify(root));
           }}
         >
           Save to Local Storage
