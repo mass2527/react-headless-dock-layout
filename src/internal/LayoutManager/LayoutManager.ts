@@ -6,6 +6,7 @@ import type {
   LayoutManagerOptions,
   LayoutNode,
   LayoutRect,
+  SplitLayoutRect,
   SplitNode,
 } from "../../types";
 import { assertNever } from "../assertNever";
@@ -223,34 +224,13 @@ export class LayoutManager {
       throw new Error(`Rect with id ${id} is not a split node`);
     }
 
-    if (resizingRect.orientation === "horizontal") {
-      const { left: leftRect, right: rightRect } = this.getSplitChildRects(
-        resizingRect.id,
-      );
-      const leftWidth = point.x - leftRect.x;
-      const totalWidth = leftRect.width + resizingRect.width + rightRect.width;
-      const ratio = clamp(
-        leftWidth / totalWidth,
-        this.MIN_RESIZE_RATIO,
-        this.MAX_RESIZE_RATIO,
-      );
-      this.setSplitRatio(resizingRect.id, ratio);
-    } else if (resizingRect.orientation === "vertical") {
-      const { left: topRect, right: bottomRect } = this.getSplitChildRects(
-        resizingRect.id,
-      );
-      const topHeight = point.y - topRect.y;
-      const totalHeight =
-        topRect.height + resizingRect.height + bottomRect.height;
-      const ratio = clamp(
-        topHeight / totalHeight,
-        this.MIN_RESIZE_RATIO,
-        this.MAX_RESIZE_RATIO,
-      );
-      this.setSplitRatio(resizingRect.id, ratio);
-    } else {
-      assertNever(resizingRect.orientation);
-    }
+    const splitNode = this._tree.findNode(id);
+    invariant(splitNode !== null, "Split node is not null");
+    invariant(splitNode.type === "split", "Split node is a split");
+
+    splitNode.ratio = this.calculateResizeRatio(splitNode, resizingRect, point);
+
+    this.syncLayoutRects();
   }
 
   addPanel(options?: {
@@ -423,53 +403,6 @@ export class LayoutManager {
     }
   }
 
-  private setSplitRatio(id: string, ratio: number) {
-    const splitNode = this._tree.findNode(id);
-
-    invariant(splitNode !== null, "Node is not null");
-    invariant(splitNode.type === "split", "Node is a split");
-
-    if (splitNode.orientation === "horizontal") {
-      const totalWidth =
-        this.getSurroundingRect(splitNode.left.id).width +
-        this._options.gap +
-        this.getSurroundingRect(splitNode.right.id).width;
-      const minLeftWidth = calculateMinSize(
-        splitNode.left,
-        this._options.gap,
-      ).width;
-      const minRightWidth = calculateMinSize(
-        splitNode.right,
-        this._options.gap,
-      ).width;
-      const minRatio = (minLeftWidth + this._options.gap / 2) / totalWidth;
-      const maxRatio =
-        (totalWidth - (minRightWidth + this._options.gap / 2)) / totalWidth;
-      splitNode.ratio = clamp(ratio, minRatio, maxRatio);
-    } else if (splitNode.orientation === "vertical") {
-      const totalHeight =
-        this.getSurroundingRect(splitNode.left.id).height +
-        this._options.gap +
-        this.getSurroundingRect(splitNode.right.id).height;
-      const minTopHeight = calculateMinSize(
-        splitNode.left,
-        this._options.gap,
-      ).height;
-      const minBottomHeight = calculateMinSize(
-        splitNode.right,
-        this._options.gap,
-      ).height;
-      const minRatio = (minTopHeight + this._options.gap / 2) / totalHeight;
-      const maxRatio =
-        (totalHeight - (minBottomHeight + this._options.gap / 2)) / totalHeight;
-      splitNode.ratio = clamp(ratio, minRatio, maxRatio);
-    } else {
-      assertNever(splitNode.orientation);
-    }
-
-    this.syncLayoutRects();
-  }
-
   private findRect(id: string) {
     return this._layoutRects.find((rect) => rect.id === id) ?? null;
   }
@@ -515,13 +448,66 @@ export class LayoutManager {
     }
   }
 
-  private getSplitChildRects(splitId: string) {
-    const node = this._tree.findNode(splitId);
-    invariant(node !== null && node.type === "split");
+  private calculateResizeRatio(
+    splitNode: SplitNode,
+    splitRect: SplitLayoutRect,
+    point: Point,
+  ): number {
+    if (splitRect.orientation === "horizontal") {
+      const leftRect = this.getSurroundingRect(splitNode.left.id);
+      const rightRect = this.getSurroundingRect(splitNode.right.id);
+      const leftWidth = point.x - leftRect.x;
+      const ratio = clamp(
+        leftWidth / (leftRect.width + splitRect.width + rightRect.width),
+        this.MIN_RESIZE_RATIO,
+        this.MAX_RESIZE_RATIO,
+      );
 
-    return {
-      left: this.getSurroundingRect(node.left.id),
-      right: this.getSurroundingRect(node.right.id),
-    };
+      const totalWidth = leftRect.width + this._options.gap + rightRect.width;
+
+      const minLeftWidth = calculateMinSize(
+        splitNode.left,
+        this._options.gap,
+      ).width;
+      const minRatio = (minLeftWidth + this._options.gap / 2) / totalWidth;
+
+      const minRightWidth = calculateMinSize(
+        splitNode.right,
+        this._options.gap,
+      ).width;
+      const maxRatio =
+        (totalWidth - (minRightWidth + this._options.gap / 2)) / totalWidth;
+
+      return clamp(ratio, minRatio, maxRatio);
+    } else if (splitRect.orientation === "vertical") {
+      const topRect = this.getSurroundingRect(splitNode.left.id);
+      const bottomRect = this.getSurroundingRect(splitNode.right.id);
+      const topHeight = point.y - topRect.y;
+      const ratio = clamp(
+        topHeight / (topRect.height + splitRect.height + bottomRect.height),
+        this.MIN_RESIZE_RATIO,
+        this.MAX_RESIZE_RATIO,
+      );
+
+      const totalHeight =
+        topRect.height + this._options.gap + bottomRect.height;
+
+      const minTopHeight = calculateMinSize(
+        splitNode.left,
+        this._options.gap,
+      ).height;
+      const minRatio = (minTopHeight + this._options.gap / 2) / totalHeight;
+
+      const minBottomHeight = calculateMinSize(
+        splitNode.right,
+        this._options.gap,
+      ).height;
+      const maxRatio =
+        (totalHeight - (minBottomHeight + this._options.gap / 2)) / totalHeight;
+
+      return clamp(ratio, minRatio, maxRatio);
+    } else {
+      assertNever(splitRect.orientation);
+    }
   }
 }
