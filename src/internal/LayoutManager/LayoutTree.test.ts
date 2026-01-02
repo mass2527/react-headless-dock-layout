@@ -203,32 +203,6 @@ describe("LayoutTree", () => {
   });
 
   describe("replaceChildNode", () => {
-    it("should throw an error if the parent node is not found", () => {
-      const tree = new LayoutTree(null);
-      expect(() =>
-        tree.replaceChildNode({
-          parentId: "non-existent-parent-id",
-          oldChildId: "child",
-          newChild: { id: "new-child", type: "panel" },
-        }),
-      ).toThrowError("Parent node with id non-existent-parent-id not found");
-    });
-
-    it("should throw an error if the parent node is not a split node", () => {
-      const root: PanelNode = {
-        id: "root",
-        type: "panel",
-      };
-      const tree = new LayoutTree(root);
-      expect(() =>
-        tree.replaceChildNode({
-          parentId: "root",
-          oldChildId: "child",
-          newChild: { id: "new-child", type: "panel" },
-        }),
-      ).toThrowError("Parent node with id root is not a split node");
-    });
-
     it("should throw an error if the child node is not found", () => {
       const root: LayoutNode = {
         id: "root",
@@ -247,7 +221,7 @@ describe("LayoutTree", () => {
       const tree = new LayoutTree(root);
       expect(() =>
         tree.replaceChildNode({
-          parentId: "root",
+          parent: root,
           oldChildId: "non-existent-child-id",
           newChild: { id: "new-child", type: "panel" },
         }),
@@ -273,7 +247,7 @@ describe("LayoutTree", () => {
       const tree = new LayoutTree(root);
       expect(() =>
         tree.replaceChildNode({
-          parentId: "root",
+          parent: root,
           oldChildId: "right-left",
           newChild: { id: "new-child", type: "panel" },
         }),
@@ -303,7 +277,7 @@ describe("LayoutTree", () => {
         type: "panel",
       };
       tree.replaceChildNode({
-        parentId: "root",
+        parent: root,
         oldChildId: "left",
         newChild: newChild,
       });
@@ -331,7 +305,7 @@ describe("LayoutTree", () => {
         type: "panel",
       };
       tree.replaceChildNode({
-        parentId: "root",
+        parent: root,
         oldChildId: "right",
         newChild: newChild,
       });

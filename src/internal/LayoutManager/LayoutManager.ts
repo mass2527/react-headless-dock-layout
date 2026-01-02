@@ -102,7 +102,7 @@ export class LayoutManager {
     invariant(grandParentNode !== null, "Grand parent node is not null");
 
     this._tree.replaceChildNode({
-      parentId: grandParentNode.id,
+      parent: grandParentNode,
       oldChildId: parentNode.id,
       newChild: siblingNode,
     });
@@ -187,7 +187,7 @@ export class LayoutManager {
       this._tree.root = sourceNodeSibling;
     } else {
       this._tree.replaceChildNode({
-        parentId: sourceNodeGrandParent.id,
+        parent: sourceNodeGrandParent,
         oldChildId: sourceNodeParent.id,
         newChild: sourceNodeSibling,
       });
@@ -202,7 +202,7 @@ export class LayoutManager {
     });
 
     this._tree.replaceChildNode({
-      parentId: targetNodeParent.id,
+      parent: targetNodeParent,
       oldChildId: targetId,
       newChild: splitNode,
     });
@@ -296,7 +296,7 @@ export class LayoutManager {
       ratio,
     });
     this._tree.replaceChildNode({
-      parentId: targetNodeParent.id,
+      parent: targetNodeParent,
       oldChildId: targetId,
       newChild: splitNode,
     });

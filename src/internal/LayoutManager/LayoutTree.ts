@@ -1,4 +1,4 @@
-import type { LayoutNode } from "../../types";
+import type { LayoutNode, SplitNode } from "../../types";
 import { assertNever } from "../assertNever";
 import { findParentNode } from "../findParentNode";
 
@@ -47,35 +47,26 @@ export class LayoutTree {
   }
 
   replaceChildNode({
-    parentId,
+    parent,
     oldChildId,
     newChild,
   }: {
-    parentId: string;
+    parent: SplitNode;
     oldChildId: string;
     newChild: LayoutNode;
   }) {
-    const parentNode = this.findNode(parentId);
-    if (parentNode === null) {
-      throw new Error(`Parent node with id ${parentId} not found`);
-    }
-
-    if (parentNode.type !== "split") {
-      throw new Error(`Parent node with id ${parentId} is not a split node`);
-    }
-
     const oldChildNode = this.findNode(oldChildId);
     if (oldChildNode === null) {
       throw new Error(`Child node with id ${oldChildId} not found`);
     }
 
-    if (parentNode.left.id === oldChildId) {
-      parentNode.left = newChild;
-    } else if (parentNode.right.id === oldChildId) {
-      parentNode.right = newChild;
+    if (parent.left.id === oldChildId) {
+      parent.left = newChild;
+    } else if (parent.right.id === oldChildId) {
+      parent.right = newChild;
     } else {
       throw new Error(
-        `Child node with id ${oldChildId} is not a child of the parent node with id ${parentId}`,
+        `Child node with id ${oldChildId} is not a child of the parent node with id ${parent.id}`,
       );
     }
   }
