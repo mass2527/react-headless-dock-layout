@@ -185,10 +185,12 @@ export class LayoutManager {
     );
     if (sourceNodeGrandParent === null) {
       this._tree.root = sourceNodeSibling;
-    } else if (sourceNodeGrandParent.right.id === sourceNodeParent.id) {
-      sourceNodeGrandParent.right = sourceNodeSibling;
-    } else if (sourceNodeGrandParent.left.id === sourceNodeParent.id) {
-      sourceNodeGrandParent.left = sourceNodeSibling;
+    } else {
+      this._tree.replaceChildNode({
+        parentId: sourceNodeGrandParent.id,
+        oldChildId: sourceNodeParent.id,
+        newChild: sourceNodeSibling,
+      });
     }
 
     const targetNodeParent = this._tree.findParentNode(targetId);
@@ -198,13 +200,12 @@ export class LayoutManager {
       sourceNode,
       targetNode,
     });
-    if (targetNodeParent.left.id === targetId) {
-      targetNodeParent.left = splitNode;
-    } else if (targetNodeParent.right.id === targetId) {
-      targetNodeParent.right = splitNode;
-    } else {
-      invariant(false);
-    }
+
+    this._tree.replaceChildNode({
+      parentId: targetNodeParent.id,
+      oldChildId: targetId,
+      newChild: splitNode,
+    });
 
     this.syncLayoutRects();
   }
