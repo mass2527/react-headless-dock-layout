@@ -13,31 +13,27 @@ export interface AddPanelStrategy {
 
 export const evenlyDividedHorizontalStrategy: AddPanelStrategy = {
   getPlacement(root) {
-    const horizontalNodeCount = calculateHorizontalSplitCount(root) + 1;
+    const horizontalSplitCount = countHorizontalSplits(root) + 1;
 
     return {
       targetId: root.id,
       direction: "right",
-      ratio: horizontalNodeCount / (horizontalNodeCount + 1),
+      ratio: horizontalSplitCount / (horizontalSplitCount + 1),
     };
   },
 };
 
-function calculateHorizontalSplitCount(node: LayoutNode): number {
+function countHorizontalSplits(node: LayoutNode): number {
   if (node.type === "panel") {
     return 0;
   } else if (node.type === "split") {
     if (node.orientation === "horizontal") {
       return (
-        1 +
-        calculateHorizontalSplitCount(node.left) +
-        calculateHorizontalSplitCount(node.right)
+        1 + countHorizontalSplits(node.left) + countHorizontalSplits(node.right)
       );
     } else if (node.orientation === "vertical") {
       return (
-        0 +
-        calculateHorizontalSplitCount(node.left) +
-        calculateHorizontalSplitCount(node.right)
+        countHorizontalSplits(node.left) + countHorizontalSplits(node.right)
       );
     } else {
       assertNever(node.orientation);
