@@ -10,7 +10,6 @@ import type {
 } from "../../types";
 import { assertNever } from "../assertNever";
 import { clamp } from "../clamp";
-import { EventEmitter } from "../EventEmitter";
 import { invariant } from "../invariant";
 
 import { calculateLayoutRects } from "./calculateLayoutRects";
@@ -22,7 +21,7 @@ import type { Direction, Point, Rect, Size } from "./types";
 export class LayoutManager {
   private _tree: LayoutTree;
   private _options: Required<LayoutManagerOptions>;
-  private _eventEmitter = new EventEmitter();
+  private _listeners = new Set<() => void>();
   private _layoutRects: LayoutRect[] = [];
   private _addPanelStrategy: AddPanelStrategy = evenlyDividedHorizontalStrategy;
 
@@ -50,9 +49,11 @@ export class LayoutManager {
   }
 
   subscribe = (listener: () => void) => {
-    const unsubscribe = this._eventEmitter.subscribe(listener);
+    this._listeners.add(listener);
 
-    return unsubscribe;
+    return () => {
+      this._listeners.delete(listener);
+    };
   };
 
   setSize(size: Size) {
@@ -343,7 +344,9 @@ export class LayoutManager {
   }
 
   private emit() {
-    this._eventEmitter.emit();
+    this._listeners.forEach((listener) => {
+      listener();
+    });
   }
 
   private syncLayoutRects() {
