@@ -234,13 +234,13 @@ export class LayoutManager {
     this.syncLayoutRects();
   }
 
-  addPanel(options?: {
-    id?: string;
+  addPanel(options: {
+    id: string;
     targetId?: string;
     direction?: Direction;
     ratio?: number;
   }) {
-    const id = options?.id ?? crypto.randomUUID();
+    const id = options.id;
 
     if (this._tree.root === null) {
       this._tree.root = {
@@ -251,7 +251,7 @@ export class LayoutManager {
       return;
     }
 
-    const shouldUseStrategy = options?.targetId === undefined;
+    const shouldUseStrategy = options.targetId === undefined;
     const {
       targetId,
       direction = "right",
