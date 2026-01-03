@@ -11,6 +11,7 @@ import type {
 } from "../../types";
 import { assertNever } from "../assertNever";
 import { clamp } from "../clamp";
+import { generateId } from "../generateId";
 import { invariant } from "../invariant";
 
 import { calculateLayoutRects } from "./calculateLayoutRects";
@@ -351,7 +352,7 @@ export class LayoutManager {
     switch (direction) {
       case "left": {
         return {
-          id: crypto.randomUUID(),
+          id: generateId(),
           type: "split",
           orientation: "horizontal",
           ratio,
@@ -361,7 +362,7 @@ export class LayoutManager {
       }
       case "right": {
         return {
-          id: crypto.randomUUID(),
+          id: generateId(),
           type: "split",
           orientation: "horizontal",
           ratio,
@@ -371,7 +372,7 @@ export class LayoutManager {
       }
       case "top": {
         return {
-          id: crypto.randomUUID(),
+          id: generateId(),
           type: "split",
           orientation: "vertical",
           ratio,
@@ -381,7 +382,7 @@ export class LayoutManager {
       }
       case "bottom": {
         return {
-          id: crypto.randomUUID(),
+          id: generateId(),
           type: "split",
           orientation: "vertical",
           ratio,
