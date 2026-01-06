@@ -149,7 +149,7 @@ export function useDockLayout<T extends HTMLElement>(
         assertNever(rect);
       }
     },
-    getDropZoneProps: (rect: PanelLayoutRect) => {
+    getDropIndicatorProps: (rect: PanelLayoutRect) => {
       if (draggingRect === null) {
         return null;
       }
@@ -160,7 +160,7 @@ export function useDockLayout<T extends HTMLElement>(
       }
 
       return {
-        style: getDropZoneStyle(dropTarget.direction),
+        style: getDropIndicatorStyle(dropTarget.direction),
       };
     },
     getDragHandleProps: (rect: PanelLayoutRect) => {
@@ -177,7 +177,7 @@ export function useDockLayout<T extends HTMLElement>(
   };
 }
 
-function getDropZoneStyle(direction: Direction) {
+function getDropIndicatorStyle(direction: Direction) {
   if (direction === "top") {
     return {
       position: "absolute",

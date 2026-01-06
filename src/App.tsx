@@ -10,7 +10,7 @@ export function App() {
     layoutRects,
     draggingRect,
     getRectProps,
-    getDropZoneProps,
+    getDropIndicatorProps,
     getDragHandleProps,
   } = useDockLayout<HTMLDivElement>(() => {
     console.info("working");
@@ -61,7 +61,7 @@ export function App() {
             );
           } else if (rect.type === "panel") {
             const { style, ...props } = getRectProps(rect);
-            const dropZoneProps = getDropZoneProps(rect);
+            const dropIndicatorProps = getDropIndicatorProps(rect);
 
             return (
               <div
@@ -75,10 +75,10 @@ export function App() {
                 }}
                 {...props}
               >
-                {dropZoneProps !== null && (
+                {dropIndicatorProps !== null && (
                   <div
                     style={{
-                      ...dropZoneProps.style,
+                      ...dropIndicatorProps.style,
                       backgroundColor: "#3182f6",
                       opacity: 0.5,
                     }}
