@@ -27,7 +27,7 @@ export function App() {
         <button
           type="button"
           onClick={() => {
-            addPanel({ id: Date.now().toString() });
+            addPanel(Date.now().toString());
           }}
         >
           Add panel

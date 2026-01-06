@@ -235,9 +235,7 @@ export class LayoutManager {
     this.syncLayoutRects();
   }
 
-  addPanel(options: { id: string }) {
-    const id = options.id;
-
+  addPanel(id: string) {
     if (this._tree.root === null) {
       this._tree.root = {
         id,

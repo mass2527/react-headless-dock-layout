@@ -50,10 +50,10 @@ function App() {
 
   return (
     <div>
-      <button type="button" onClick={() => addPanel({ id: "explorer" })}>
+      <button type="button" onClick={() => addPanel("explorer")}>
         Add Explorer Panel
       </button>
-      <button type="button" onClick={() => addPanel({ id: "terminal" })}>
+      <button type="button" onClick={() => addPanel("terminal")}>
         Add Terminal Panel
       </button>
 

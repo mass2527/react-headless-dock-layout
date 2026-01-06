@@ -630,7 +630,7 @@ describe("LayoutManager", () => {
     it("should add panel with given id when the root is null", () => {
       const root = null;
       const layoutManager = new LayoutManager(root);
-      layoutManager.addPanel({ id: "abc-123" });
+      layoutManager.addPanel("abc-123");
       expect(layoutManager.root).toEqual<LayoutNode>({
         id: "abc-123",
         type: "panel",
@@ -643,7 +643,7 @@ describe("LayoutManager", () => {
         type: "panel",
       };
       const layoutManager = new LayoutManager(root);
-      layoutManager.addPanel({ id: "abc-123" });
+      layoutManager.addPanel("abc-123");
       expect(layoutManager.root).toEqual<LayoutNode>({
         id: expect.any(String),
         type: "split",
@@ -676,7 +676,7 @@ describe("LayoutManager", () => {
         },
       };
       const layoutManager = new LayoutManager(root);
-      layoutManager.addPanel({ id: "abc-123" });
+      layoutManager.addPanel("abc-123");
       expect(layoutManager.root).toEqual<LayoutNode>({
         id: expect.any(String),
         type: "split",
@@ -719,7 +719,7 @@ describe("LayoutManager", () => {
         },
       };
       const layoutManager = new LayoutManager(root);
-      layoutManager.addPanel({ id: "abc-123" });
+      layoutManager.addPanel("abc-123");
       expect(layoutManager.root).toEqual<LayoutNode>({
         id: expect.any(String),
         type: "split",
@@ -772,7 +772,7 @@ describe("LayoutManager", () => {
         },
       };
       const layoutManager = new LayoutManager(root);
-      layoutManager.addPanel({ id: "abc-123" });
+      layoutManager.addPanel("abc-123");
       expect(layoutManager.root).toEqual<LayoutNode>({
         id: expect.any(String),
         type: "split",
