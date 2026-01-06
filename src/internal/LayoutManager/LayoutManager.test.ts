@@ -627,44 +627,62 @@ describe("LayoutManager", () => {
   });
 
   describe("addPanel", () => {
-    describe("common behavior (when root is null)", () => {
-      it("should add panel with given id when the root is null", () => {
-        const root = null;
-        const layoutManager = new LayoutManager(root);
-        layoutManager.addPanel({ id: "abc-123" });
-        expect(layoutManager.root).toEqual<LayoutNode>({
-          id: "abc-123",
-          type: "panel",
-        });
+    it("should add panel with given id when the root is null", () => {
+      const root = null;
+      const layoutManager = new LayoutManager(root);
+      layoutManager.addPanel({ id: "abc-123" });
+      expect(layoutManager.root).toEqual<LayoutNode>({
+        id: "abc-123",
+        type: "panel",
       });
     });
 
-    describe("when options are not provided (default addPanelStrategy is applied)", () => {
-      it("should add panel to the right of the root with correct ratio when the root is a panel node", () => {
-        const root: LayoutNode = {
+    it("should add panel to the right of the root with correct ratio when the root is a panel node", () => {
+      const root: LayoutNode = {
+        id: "root",
+        type: "panel",
+      };
+      const layoutManager = new LayoutManager(root);
+      layoutManager.addPanel({ id: "abc-123" });
+      expect(layoutManager.root).toEqual<LayoutNode>({
+        id: expect.any(String),
+        type: "split",
+        orientation: "horizontal",
+        ratio: 0.5,
+        left: {
           id: "root",
           type: "panel",
-        };
-        const layoutManager = new LayoutManager(root);
-        layoutManager.addPanel({ id: "abc-123" });
-        expect(layoutManager.root).toEqual<LayoutNode>({
-          id: expect.any(String),
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: "root",
-            type: "panel",
-          },
-          right: {
-            id: "abc-123",
-            type: "panel",
-          },
-        });
+        },
+        right: {
+          id: "abc-123",
+          type: "panel",
+        },
       });
+    });
 
-      it("should add panel to the right of the root with correct ratio when the root is a split node with horizontal orientation", () => {
-        const root: LayoutNode = {
+    it("should add panel to the right of the root with correct ratio when the root is a split node with horizontal orientation", () => {
+      const root: LayoutNode = {
+        id: "root",
+        type: "split",
+        orientation: "horizontal",
+        ratio: 0.5,
+        left: {
+          id: "left",
+          type: "panel",
+        },
+        right: {
+          id: "right",
+          type: "panel",
+        },
+      };
+      const layoutManager = new LayoutManager(root);
+      layoutManager.addPanel({ id: "abc-123" });
+      expect(layoutManager.root).toEqual<LayoutNode>({
+        id: expect.any(String),
+        type: "split",
+        orientation: "horizontal",
+        ratio: 2 / 3,
+        left: {
           id: "root",
           type: "split",
           orientation: "horizontal",
@@ -677,37 +695,37 @@ describe("LayoutManager", () => {
             id: "right",
             type: "panel",
           },
-        };
-        const layoutManager = new LayoutManager(root);
-        layoutManager.addPanel({ id: "abc-123" });
-        expect(layoutManager.root).toEqual<LayoutNode>({
-          id: expect.any(String),
-          type: "split",
-          orientation: "horizontal",
-          ratio: 2 / 3,
-          left: {
-            id: "root",
-            type: "split",
-            orientation: "horizontal",
-            ratio: 0.5,
-            left: {
-              id: "left",
-              type: "panel",
-            },
-            right: {
-              id: "right",
-              type: "panel",
-            },
-          },
-          right: {
-            id: "abc-123",
-            type: "panel",
-          },
-        });
+        },
+        right: {
+          id: "abc-123",
+          type: "panel",
+        },
       });
+    });
 
-      it("should add panel to the right of the root with correct ratio when the root is a split node with vertical orientation", () => {
-        const root: LayoutNode = {
+    it("should add panel to the right of the root with correct ratio when the root is a split node with vertical orientation", () => {
+      const root: LayoutNode = {
+        id: "root",
+        type: "split",
+        orientation: "vertical",
+        ratio: 0.5,
+        left: {
+          id: "left",
+          type: "panel",
+        },
+        right: {
+          id: "right",
+          type: "panel",
+        },
+      };
+      const layoutManager = new LayoutManager(root);
+      layoutManager.addPanel({ id: "abc-123" });
+      expect(layoutManager.root).toEqual<LayoutNode>({
+        id: expect.any(String),
+        type: "split",
+        orientation: "horizontal",
+        ratio: 0.5,
+        left: {
           id: "root",
           type: "split",
           orientation: "vertical",
@@ -720,37 +738,47 @@ describe("LayoutManager", () => {
             id: "right",
             type: "panel",
           },
-        };
-        const layoutManager = new LayoutManager(root);
-        layoutManager.addPanel({ id: "abc-123" });
-        expect(layoutManager.root).toEqual<LayoutNode>({
-          id: expect.any(String),
+        },
+        right: {
+          id: "abc-123",
+          type: "panel",
+        },
+      });
+    });
+
+    it("should add panel to the right of the root with correct ratio when the root is a nested split node", () => {
+      const root: LayoutNode = {
+        id: "root",
+        type: "split",
+        orientation: "horizontal",
+        ratio: 0.5,
+        left: {
+          id: "left",
           type: "split",
           orientation: "horizontal",
           ratio: 0.5,
           left: {
-            id: "root",
-            type: "split",
-            orientation: "vertical",
-            ratio: 0.5,
-            left: {
-              id: "left",
-              type: "panel",
-            },
-            right: {
-              id: "right",
-              type: "panel",
-            },
-          },
-          right: {
-            id: "abc-123",
+            id: "left-left",
             type: "panel",
           },
-        });
-      });
-
-      it("should add panel to the right of the root with correct ratio when the root is a nested split node", () => {
-        const root: LayoutNode = {
+          right: {
+            id: "left-right",
+            type: "panel",
+          },
+        },
+        right: {
+          id: "right",
+          type: "panel",
+        },
+      };
+      const layoutManager = new LayoutManager(root);
+      layoutManager.addPanel({ id: "abc-123" });
+      expect(layoutManager.root).toEqual<LayoutNode>({
+        id: expect.any(String),
+        type: "split",
+        orientation: "horizontal",
+        ratio: 0.75,
+        left: {
           id: "root",
           type: "split",
           orientation: "horizontal",
@@ -773,165 +801,11 @@ describe("LayoutManager", () => {
             id: "right",
             type: "panel",
           },
-        };
-        const layoutManager = new LayoutManager(root);
-        layoutManager.addPanel({ id: "abc-123" });
-        expect(layoutManager.root).toEqual<LayoutNode>({
-          id: expect.any(String),
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.75,
-          left: {
-            id: "root",
-            type: "split",
-            orientation: "horizontal",
-            ratio: 0.5,
-            left: {
-              id: "left",
-              type: "split",
-              orientation: "horizontal",
-              ratio: 0.5,
-              left: {
-                id: "left-left",
-                type: "panel",
-              },
-              right: {
-                id: "left-right",
-                type: "panel",
-              },
-            },
-            right: {
-              id: "right",
-              type: "panel",
-            },
-          },
-          right: {
-            id: "abc-123",
-            type: "panel",
-          },
-        });
-      });
-    });
-
-    describe("when options are provided", () => {
-      it("should add panel to the root when the root is a panel node", () => {
-        const root: LayoutNode = {
-          id: "root",
+        },
+        right: {
+          id: "abc-123",
           type: "panel",
-        };
-        const layoutManager = new LayoutManager(root);
-        layoutManager.addPanel({ id: "abc-123", targetId: "root" });
-        expect(layoutManager.root).toEqual<LayoutNode>({
-          id: expect.any(String),
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: "root",
-            type: "panel",
-          },
-          right: {
-            id: "abc-123",
-            type: "panel",
-          },
-        });
-      });
-
-      it("should add panel to the root when the root is a split node", () => {
-        const root: LayoutNode = {
-          id: "root",
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: "left",
-            type: "panel",
-          },
-          right: {
-            id: "right",
-            type: "panel",
-          },
-        };
-        const layoutManager = new LayoutManager(root);
-        layoutManager.addPanel({ id: "abc-123", targetId: "root" });
-        expect(layoutManager.root).toEqual<LayoutNode>({
-          id: expect.any(String),
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: "root",
-            type: "split",
-            orientation: "horizontal",
-            ratio: 0.5,
-            left: {
-              id: "left",
-              type: "panel",
-            },
-            right: {
-              id: "right",
-              type: "panel",
-            },
-          },
-          right: {
-            id: "abc-123",
-            type: "panel",
-          },
-        });
-      });
-
-      it("should throw an error if the target node is not found", () => {
-        const root: LayoutNode = {
-          id: "root",
-          type: "panel",
-        };
-        const layoutManager = new LayoutManager(root);
-        expect(() =>
-          layoutManager.addPanel({ id: "abc-123", targetId: "nonexistent" }),
-        ).toThrowError("Node with id nonexistent not found");
-      });
-
-      it("should add panel to the non-root", () => {
-        const root: LayoutNode = {
-          id: "root",
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: "left",
-            type: "panel",
-          },
-          right: {
-            id: "right",
-            type: "panel",
-          },
-        };
-        const layoutManager = new LayoutManager(root);
-        layoutManager.addPanel({ id: "abc-123", targetId: "left" });
-        expect(layoutManager.root).toEqual<LayoutNode>({
-          id: "root",
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: expect.any(String),
-            type: "split",
-            orientation: "horizontal",
-            ratio: 0.5,
-            left: {
-              id: "left",
-              type: "panel",
-            },
-            right: {
-              id: "abc-123",
-              type: "panel",
-            },
-          },
-          right: {
-            id: "right",
-            type: "panel",
-          },
-        });
+        },
       });
     });
   });
