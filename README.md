@@ -21,6 +21,10 @@ A lightweight, headless dock layout library for React.
 - You want a complete IDE-like layout system
 
 
+## Requirements
+
+- React >= 18.0.0
+
 ## Installation
 
 ```bash
