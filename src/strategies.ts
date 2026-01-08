@@ -3,16 +3,16 @@ import { findParentNode } from "./internal/findParentNode";
 import type { Direction } from "./internal/LayoutManager/types";
 import type { LayoutNode, PanelNode } from "./types";
 
-export interface AddPanelStrategy {
-  getPlacement(root: LayoutNode): {
+export interface PlacementStrategy {
+  getPlacementOnAdd(root: LayoutNode): {
     targetId: string;
     direction: Direction;
     ratio: number;
   };
 }
 
-export const evenlyDividedHorizontalStrategy: AddPanelStrategy = {
-  getPlacement(root) {
+export const evenlyDividedHorizontalStrategy: PlacementStrategy = {
+  getPlacementOnAdd(root) {
     const horizontalSplitCount = countHorizontalSplits(root) + 1;
 
     return {
@@ -43,8 +43,8 @@ function countHorizontalSplits(node: LayoutNode): number {
   }
 }
 
-export const bspStrategy: AddPanelStrategy = {
-  getPlacement(root) {
+export const bspStrategy: PlacementStrategy = {
+  getPlacementOnAdd(root) {
     const rightMostPanel = findRightMostPanel(root);
     const parentNode = findParentNode(root, rightMostPanel.id);
 

@@ -1,8 +1,10 @@
 import type { Orientation, Rect, Size } from "./internal/LayoutManager/types";
+import type { PlacementStrategy } from "./strategies";
 
 export interface LayoutManagerOptions {
   size?: Size;
   gap?: number;
+  addPanelStrategy?: PlacementStrategy;
 }
 
 export interface PanelLayoutRect extends Pick<PanelNode, "id" | "type">, Rect {}

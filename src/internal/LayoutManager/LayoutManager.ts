@@ -1,6 +1,6 @@
 import {
-  type AddPanelStrategy,
   evenlyDividedHorizontalStrategy,
+  type PlacementStrategy,
 } from "../../strategies";
 import type {
   LayoutManagerOptions,
@@ -28,13 +28,16 @@ export class LayoutManager {
   private _options: Required<LayoutManagerOptions>;
   private _listeners = new Set<() => void>();
   private _layoutRects: LayoutRect[] = [];
-  private _addPanelStrategy: AddPanelStrategy = evenlyDividedHorizontalStrategy;
+  private _placementStrategy: PlacementStrategy =
+    evenlyDividedHorizontalStrategy;
 
   constructor(root: LayoutNode | null, options?: LayoutManagerOptions) {
     this._tree = new LayoutTree(root);
     this._options = {
       gap: options?.gap ?? 10,
       size: options?.size ?? { width: 0, height: 0 },
+      addPanelStrategy:
+        options?.addPanelStrategy ?? evenlyDividedHorizontalStrategy,
     };
 
     this._layoutRects = calculateLayoutRects(root, this._options);
@@ -249,7 +252,7 @@ export class LayoutManager {
       targetId,
       direction,
       ratio = 0.5,
-    } = this._addPanelStrategy.getPlacement(this._tree.root);
+    } = this._placementStrategy.getPlacementOnAdd(this._tree.root);
 
     if (targetId === this._tree.root.id) {
       this._tree.root = this.createSplitNode({

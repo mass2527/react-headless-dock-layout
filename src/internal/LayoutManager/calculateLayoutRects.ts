@@ -4,7 +4,7 @@ import type { Rect } from "./types";
 
 export function calculateLayoutRects(
   root: LayoutNode | null,
-  options: Required<LayoutManagerOptions>,
+  options: Required<Pick<LayoutManagerOptions, "size" | "gap">>,
 ): LayoutRect[] {
   if (root === null) {
     return [];
