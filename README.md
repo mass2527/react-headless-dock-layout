@@ -115,3 +115,47 @@ function App() {
   );
 }
 ```
+
+## Advanced
+
+### Placement Strategies
+
+A placement strategy determines where new panels are placed when added. The default strategy is `equalWidthRightStrategy`, which adds panels to the right with equal widths.
+
+To use a custom strategy, pass it in the options. Here's an example that adds panels to the rightmost panel, alternating split directions:
+
+```tsx
+import { useDockLayout, type PlacementStrategy, type LayoutNode, type PanelNode, type SplitNode } from 'react-headless-dock-layout';
+
+function findRightMostPanel(node: LayoutNode): PanelNode {
+  if (node.type === "panel") return node;
+  if (node.type === "split") return findRightMostPanel(node.right);
+  throw new Error("Unexpected node type");
+}
+
+function findParentNode(root: LayoutNode, id: string): SplitNode | null {
+  function find(node: LayoutNode): SplitNode | null {
+    if (node.type === "panel") return null;
+    if (node.left.id === id || node.right.id === id) return node;
+    return find(node.left) ?? find(node.right);
+  }
+  return find(root);
+}
+
+const myStrategy: PlacementStrategy = {
+  getPlacementOnAdd(root) {
+    const rightMostPanel = findRightMostPanel(root);
+    const parentNode = findParentNode(root, rightMostPanel.id);
+
+    return {
+      targetId: rightMostPanel.id,
+      direction: parentNode?.orientation === "horizontal" ? "bottom" : "right",
+      ratio: 0.5,
+    };
+  },
+};
+
+const { addPanel } = useDockLayout(null, {
+  placementStrategy: myStrategy,
+});
+```
