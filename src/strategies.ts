@@ -1,7 +1,6 @@
 import { assertNever } from "./internal/assertNever";
-import { findParentNode } from "./internal/findParentNode";
 import type { Direction } from "./internal/LayoutManager/types";
-import type { LayoutNode, PanelNode } from "./types";
+import type { LayoutNode } from "./types";
 
 export interface PlacementStrategy {
   getPlacementOnAdd(root: LayoutNode): {
@@ -38,34 +37,6 @@ function countHorizontalSplits(node: LayoutNode): number {
     } else {
       assertNever(node.orientation);
     }
-  } else {
-    assertNever(node);
-  }
-}
-
-export const bspStrategy: PlacementStrategy = {
-  getPlacementOnAdd(root) {
-    const rightMostPanel = findRightMostPanel(root);
-    const parentNode = findParentNode(root, rightMostPanel.id);
-
-    return {
-      targetId: rightMostPanel.id,
-      direction:
-        parentNode === null
-          ? "right"
-          : parentNode.orientation === "horizontal"
-            ? "bottom"
-            : "right",
-      ratio: 0.5,
-    };
-  },
-};
-
-function findRightMostPanel(node: LayoutNode): PanelNode {
-  if (node.type === "panel") {
-    return node;
-  } else if (node.type === "split") {
-    return findRightMostPanel(node.right);
   } else {
     assertNever(node);
   }
