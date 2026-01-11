@@ -1,7 +1,4 @@
-import {
-  equalWidthRightStrategy,
-  type PlacementStrategy,
-} from "../../strategies";
+import { equalWidthRightStrategy } from "../../strategies";
 import type {
   LayoutManagerOptions,
   LayoutNode,
@@ -28,7 +25,6 @@ export class LayoutManager {
   private _options: Required<LayoutManagerOptions>;
   private _listeners = new Set<() => void>();
   private _layoutRects: LayoutRect[] = [];
-  private _placementStrategy: PlacementStrategy = equalWidthRightStrategy;
 
   constructor(root: LayoutNode | null, options?: LayoutManagerOptions) {
     this._tree = new LayoutTree(root);
@@ -250,7 +246,7 @@ export class LayoutManager {
       targetId,
       direction,
       ratio = 0.5,
-    } = this._placementStrategy.getPlacementOnAdd(this._tree.root);
+    } = this._options.placementStrategy.getPlacementOnAdd(this._tree.root);
 
     if (targetId === this._tree.root.id) {
       this._tree.root = this.createSplitNode({
