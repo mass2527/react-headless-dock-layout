@@ -11,7 +11,7 @@ export interface PlacementStrategy {
   };
 }
 
-export const evenlyDividedHorizontalStrategy: PlacementStrategy = {
+export const equalWidthRightStrategy: PlacementStrategy = {
   getPlacementOnAdd(root) {
     const horizontalSplitCount = countHorizontalSplits(root) + 1;
 

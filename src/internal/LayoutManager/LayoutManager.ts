@@ -1,5 +1,5 @@
 import {
-  evenlyDividedHorizontalStrategy,
+  equalWidthRightStrategy,
   type PlacementStrategy,
 } from "../../strategies";
 import type {
@@ -28,16 +28,14 @@ export class LayoutManager {
   private _options: Required<LayoutManagerOptions>;
   private _listeners = new Set<() => void>();
   private _layoutRects: LayoutRect[] = [];
-  private _placementStrategy: PlacementStrategy =
-    evenlyDividedHorizontalStrategy;
+  private _placementStrategy: PlacementStrategy = equalWidthRightStrategy;
 
   constructor(root: LayoutNode | null, options?: LayoutManagerOptions) {
     this._tree = new LayoutTree(root);
     this._options = {
       gap: options?.gap ?? 10,
       size: options?.size ?? { width: 0, height: 0 },
-      addPanelStrategy:
-        options?.addPanelStrategy ?? evenlyDividedHorizontalStrategy,
+      addPanelStrategy: options?.addPanelStrategy ?? equalWidthRightStrategy,
     };
 
     this._layoutRects = calculateLayoutRects(root, this._options);
