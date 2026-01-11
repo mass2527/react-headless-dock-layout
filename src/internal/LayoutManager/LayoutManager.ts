@@ -35,7 +35,7 @@ export class LayoutManager {
     this._options = {
       gap: options?.gap ?? 10,
       size: options?.size ?? { width: 0, height: 0 },
-      addPanelStrategy: options?.addPanelStrategy ?? equalWidthRightStrategy,
+      placementStrategy: options?.placementStrategy ?? equalWidthRightStrategy,
     };
 
     this._layoutRects = calculateLayoutRects(root, this._options);
