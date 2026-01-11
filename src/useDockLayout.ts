@@ -18,6 +18,52 @@ import type {
   SplitLayoutRect,
 } from "./types";
 
+/**
+ * Main hook for managing a dock layout.
+ *
+ * This hook provides all the necessary state and functions to create and manage
+ * a resizable, draggable dock layout system. It handles panel addition/removal,
+ * drag-and-drop, and resize operations.
+ *
+ * @param initialRoot - Initial layout tree root node. Can be:
+ *   - `null` for an empty layout
+ *   - A `LayoutNode` object
+ *   - A function that returns `LayoutNode | null` (useful for lazy initialization)
+ * @param options - Optional configuration for the layout manager.
+ * @returns An object containing layout state and helper functions.
+ *
+ * @example
+ * ```tsx
+ * // Start with an empty layout
+ * const {
+ *   containerRef,
+ *   layoutRects,
+ *   addPanel,
+ *   removePanel,
+ *   getRectProps,
+ *   getDragHandleProps,
+ * } = useDockLayout<HTMLDivElement>(null);
+ * ```
+ *
+ * @example
+ * ```tsx
+ * // Load initial layout from localStorage
+ * const {
+ *   containerRef,
+ *   layoutRects,
+ *   addPanel,
+ *   removePanel,
+ *   getRectProps,
+ *   getDragHandleProps,
+ * } = useDockLayout<HTMLDivElement>(() => {
+ *   const saved = localStorage.getItem("layout");
+ *   if (saved === null) {
+ *     return null;
+ *   }
+ *   return JSON.parse(saved);
+ * });
+ * ```
+ */
 export function useDockLayout<T extends HTMLElement>(
   initialRoot: LayoutNode | null | (() => LayoutNode | null),
   options?: LayoutManagerOptions,
@@ -76,8 +122,26 @@ export function useDockLayout<T extends HTMLElement>(
   );
 
   return {
+    /**
+     * Ref callback that must be attached to the container element.
+     * The container should have `position: relative` styling.
+     * The layout will automatically resize when the container size changes.
+     */
     containerRef,
+    /**
+     * Array of layout rectangles representing all panels and split bars.
+     * Each rectangle contains position, size, and type information.
+     * Use this to render your panels and split bars.
+     */
     layoutRects,
+    /**
+     * Returns props (style and event handlers) for a given layout rectangle.
+     * For split bars, returns style with cursor and onMouseDown handler for resizing.
+     * For panels, returns style and onMouseMove/onMouseUp handlers for drag-and-drop.
+     *
+     * @param rect - The layout rectangle to get props for.
+     * @returns An object with `style` and event handler props.
+     */
     getRectProps: (rect: LayoutRect) => {
       if (rect.type === "split") {
         return {
@@ -149,6 +213,14 @@ export function useDockLayout<T extends HTMLElement>(
         assertNever(rect);
       }
     },
+    /**
+     * Returns props for rendering a drop indicator overlay on a panel.
+     * The drop indicator shows where a dragged panel will be placed.
+     * Returns `null` if no panel is being dragged or if this panel is not the drop target.
+     *
+     * @param rect - The panel layout rectangle to get drop indicator props for.
+     * @returns An object with `style` for the drop indicator, or `null` if not applicable.
+     */
     getDropIndicatorProps: (rect: PanelLayoutRect) => {
       if (draggingRect === null) {
         return null;
@@ -163,6 +235,13 @@ export function useDockLayout<T extends HTMLElement>(
         style: getDropIndicatorStyle(dropTarget.direction),
       };
     },
+    /**
+     * Returns props for a drag handle element.
+     * Attach these props to a button or element that users can drag to move panels.
+     *
+     * @param rect - The panel layout rectangle to get drag handle props for.
+     * @returns An object with `onMouseDown` handler that initiates dragging.
+     */
     getDragHandleProps: (rect: PanelLayoutRect) => {
       return {
         onMouseDown: () => {
@@ -170,9 +249,33 @@ export function useDockLayout<T extends HTMLElement>(
         },
       };
     },
+    /**
+     * The currently dragging panel rectangle, or `null` if no panel is being dragged.
+     * Use this to apply visual feedback (e.g., reduce opacity) to the dragging panel.
+     */
     draggingRect,
+    /**
+     * Adds a new panel to the layout.
+     * The panel will be placed according to the configured placement strategy.
+     *
+     * @param id - Unique identifier for the new panel.
+     * @throws {Error} If the target node with the ID returned by the placement strategy is not found in the layout tree.
+     */
     addPanel: layoutManager.addPanel.bind(layoutManager),
+    /**
+     * Removes a panel from the layout.
+     * If it's the last panel, the layout becomes empty (root becomes `null`).
+     * The layout tree is automatically restructured to remove empty splits.
+     *
+     * @param id - The ID of the panel to remove.
+     * @throws {Error} If the panel is not found or if the root is null.
+     */
     removePanel: layoutManager.removePanel.bind(layoutManager),
+    /**
+     * The current root node of the layout tree.
+     * Use this to serialize the layout state (e.g., `JSON.stringify(root)`).
+     * Can be `null` if the layout is empty.
+     */
     root: layoutManager.root,
   };
 }
