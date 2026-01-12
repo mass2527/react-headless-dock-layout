@@ -50,9 +50,9 @@ describe("LayoutManager", () => {
         },
       };
       const layoutManager = new LayoutManager(root, {
-        size: { width: 100, height: 100 },
         gap: 10,
       });
+      layoutManager.setSize({ width: 100, height: 100 });
       layoutManager.resizePanel("root", { x: 30, y: 0 });
       const result: LayoutRect[] = [
         {
@@ -100,9 +100,9 @@ describe("LayoutManager", () => {
         },
       };
       const layoutManager = new LayoutManager(root, {
-        size: { width: 100, height: 100 },
         gap: 10,
       });
+      layoutManager.setSize({ width: 100, height: 100 });
       layoutManager.resizePanel("root", { x: 0, y: 30 });
       const result: LayoutRect[] = [
         {
@@ -151,9 +151,9 @@ describe("LayoutManager", () => {
         },
       };
       const layoutManager = new LayoutManager(root, {
-        size: { width: 100, height: 100 },
         gap: 10,
       });
+      layoutManager.setSize({ width: 100, height: 100 });
       layoutManager.resizePanel("root", { x: 30, y: 0 });
       const layoutRects = layoutManager.layoutRects;
       expect(layoutRects).toEqual([
@@ -249,9 +249,8 @@ describe("LayoutManager", () => {
           type: "panel",
         },
       };
-      const layoutManager = new LayoutManager(root, {
-        size: { width: 100, height: 100 },
-      });
+      const layoutManager = new LayoutManager(root);
+      layoutManager.setSize({ width: 100, height: 100 });
       layoutManager.removePanel("left");
       expect(layoutManager.root).toEqual<LayoutNode>({
         id: "right",
@@ -284,9 +283,8 @@ describe("LayoutManager", () => {
           type: "panel",
         },
       };
-      const layoutManager = new LayoutManager(root, {
-        size: { width: 100, height: 100 },
-      });
+      const layoutManager = new LayoutManager(root);
+      layoutManager.setSize({ width: 100, height: 100 });
       layoutManager.removePanel("left-left");
       expect(layoutManager.root).toEqual<LayoutNode>({
         id: "root",
@@ -462,9 +460,8 @@ describe("LayoutManager", () => {
           type: "panel",
         },
       };
-      const layoutManager = new LayoutManager(root, {
-        size: { width: 100, height: 100 },
-      });
+      const layoutManager = new LayoutManager(root);
+      layoutManager.setSize({ width: 100, height: 100 });
       layoutManager.movePanel({
         sourceId: "right",
         targetId: "left",
@@ -511,9 +508,8 @@ describe("LayoutManager", () => {
           },
         },
       };
-      const layoutManager = new LayoutManager(root, {
-        size: { width: 100, height: 100 },
-      });
+      const layoutManager = new LayoutManager(root);
+      layoutManager.setSize({ width: 100, height: 100 });
       layoutManager.movePanel({
         sourceId: "left",
         targetId: "right-left",
@@ -581,9 +577,8 @@ describe("LayoutManager", () => {
           },
         },
       };
-      const layoutManager = new LayoutManager(root, {
-        size: { width: 100, height: 100 },
-      });
+      const layoutManager = new LayoutManager(root);
+      layoutManager.setSize({ width: 100, height: 100 });
       layoutManager.movePanel({
         sourceId: "left-left",
         targetId: "right-left",

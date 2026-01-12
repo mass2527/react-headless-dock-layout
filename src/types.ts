@@ -3,12 +3,6 @@ import type { PlacementStrategy } from "./strategies";
 
 export interface LayoutManagerOptions {
   /**
-   * Initial size of the container in pixels.
-   * If not provided, defaults to `{ width: 0, height: 0 }`.
-   * The size is automatically updated when the container is resized.
-   */
-  size?: Size;
-  /**
    * Gap between panels in pixels.
    * This is the width/height of the split bar between panels.
    * Defaults to `10` if not provided.

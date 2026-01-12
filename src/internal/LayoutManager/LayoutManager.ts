@@ -22,7 +22,7 @@ export class LayoutManager {
   private readonly MAX_RESIZE_RATIO = 0.9;
 
   private _tree: LayoutTree;
-  private _options: Required<LayoutManagerOptions>;
+  private _options: Required<LayoutManagerOptions> & { size: Size };
   private _listeners = new Set<() => void>();
   private _layoutRects: LayoutRect[] = [];
 
@@ -30,7 +30,7 @@ export class LayoutManager {
     this._tree = new LayoutTree(root);
     this._options = {
       gap: options?.gap ?? 10,
-      size: options?.size ?? { width: 0, height: 0 },
+      size: { width: 0, height: 0 },
       placementStrategy: options?.placementStrategy ?? equalWidthRightStrategy,
     };
 

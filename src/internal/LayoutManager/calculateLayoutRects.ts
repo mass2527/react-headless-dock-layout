@@ -1,10 +1,10 @@
 import type { LayoutManagerOptions, LayoutNode, LayoutRect } from "../../types";
 import { assertNever } from "../assertNever";
-import type { Rect } from "./types";
+import type { Rect, Size } from "./types";
 
 export function calculateLayoutRects(
   root: LayoutNode | null,
-  options: Required<Pick<LayoutManagerOptions, "size" | "gap">>,
+  options: Required<Pick<LayoutManagerOptions, "gap">> & { size: Size },
 ): LayoutRect[] {
   if (root === null) {
     return [];
