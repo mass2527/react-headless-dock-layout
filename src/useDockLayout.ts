@@ -1,6 +1,6 @@
 import {
   type CSSProperties,
-  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -8,7 +8,6 @@ import { assertNever } from "./internal/assertNever";
 import { LayoutManager } from "./internal/LayoutManager/LayoutManager";
 import type { Direction } from "./internal/LayoutManager/types";
 import { useCursor } from "./internal/useCursor";
-import { useEventListener } from "./internal/useEventListener";
 import { useResizeObserver } from "./internal/useResizeObserver";
 import type {
   LayoutManagerOptions,
@@ -95,28 +94,6 @@ export function useDockLayout<T extends HTMLElement>(
     });
   });
 
-  useEventListener(document, "mousemove", (event) => {
-    if (resizingRect === null) return;
-
-    const container = containerRef.current;
-
-    if (container === null) {
-      throw new Error("containerRef is not attached to an element");
-    }
-
-    const rect = container.getBoundingClientRect();
-
-    layoutManager.resizePanel(resizingRect.id, {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
-    });
-  });
-
-  useEventListener(document, "mouseup", () => {
-    if (resizingRect === null) return;
-    setResizingRect(null);
-  });
-
   useCursor(
     resizingRect === null ? "default" : CURSORS[resizingRect.orientation],
   );
@@ -136,8 +113,8 @@ export function useDockLayout<T extends HTMLElement>(
     layoutRects,
     /**
      * Returns props (style and event handlers) for a given layout rectangle.
-     * For split bars, returns style with cursor and onMouseDown handler for resizing.
-     * For panels, returns style and onMouseMove/onMouseUp handlers for drag-and-drop.
+     * For split bars, returns style with cursor and pointer event handlers for resizing.
+     * For panels, returns style and pointer event handlers for drag-and-drop.
      *
      * @param rect - The layout rectangle to get props for.
      * @returns An object with `style` and event handler props.
@@ -152,9 +129,36 @@ export function useDockLayout<T extends HTMLElement>(
             width: rect.width,
             height: rect.height,
             cursor: CURSORS[rect.orientation],
+            touchAction: "none",
           },
-          onMouseDown: () => {
+          onPointerDown: (event: ReactPointerEvent) => {
+            event.currentTarget.setPointerCapture(event.pointerId);
             setResizingRect(rect);
+          },
+          onPointerMove: (event: ReactPointerEvent) => {
+            if (resizingRect === null) {
+              return;
+            }
+
+            const container = containerRef.current;
+
+            if (container === null) {
+              throw new Error("containerRef is not attached to an element");
+            }
+
+            const rect = container.getBoundingClientRect();
+            layoutManager.resizePanel(resizingRect.id, {
+              x: event.clientX - rect.left,
+              y: event.clientY - rect.top,
+            });
+          },
+          onPointerUp: (event: ReactPointerEvent) => {
+            if (resizingRect === null) {
+              return;
+            }
+
+            event.currentTarget.releasePointerCapture(event.pointerId);
+            setResizingRect(null);
           },
         } as const;
       } else if (rect.type === "panel") {
@@ -166,7 +170,7 @@ export function useDockLayout<T extends HTMLElement>(
             width: rect.width,
             height: rect.height,
           } as const,
-          onMouseMove: (event: ReactMouseEvent<T>) => {
+          onPointerMove: (event: ReactPointerEvent<T>) => {
             if (draggingRect === null) {
               return;
             }
@@ -186,7 +190,7 @@ export function useDockLayout<T extends HTMLElement>(
             });
             setDropTarget(dropTarget);
           },
-          onMouseUp: (event: ReactMouseEvent<T>) => {
+          onPointerUp: (event: ReactPointerEvent<T>) => {
             if (draggingRect === null) {
               return;
             }
@@ -240,12 +244,16 @@ export function useDockLayout<T extends HTMLElement>(
      * Attach these props to a button or element that users can drag to move panels.
      *
      * @param rect - The panel layout rectangle to get drag handle props for.
-     * @returns An object with `onMouseDown` handler that initiates dragging.
+     * @returns An object with `onPointerDown` handler and `style` that initiates dragging.
      */
     getDragHandleProps: (rect: PanelLayoutRect) => {
       return {
-        onMouseDown: () => {
+        onPointerDown: (event: ReactPointerEvent) => {
+          event.currentTarget.releasePointerCapture(event.pointerId);
           setDraggingRect(rect);
+        },
+        style: {
+          touchAction: "none",
         },
       };
     },
