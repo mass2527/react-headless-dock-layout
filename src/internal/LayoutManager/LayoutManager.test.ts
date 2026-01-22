@@ -29,6 +29,7 @@ describe("LayoutManager", () => {
         type: "panel",
       };
       const layoutManager = new LayoutManager(root);
+      layoutManager.setSize({ width: 100, height: 100 });
       expect(() => layoutManager.resizePanel("root", { x: 0, y: 0 })).toThrow(
         "Rect with id root is not a split node",
       );

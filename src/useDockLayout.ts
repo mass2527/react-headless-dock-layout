@@ -142,8 +142,9 @@ export function useDockLayout<T extends HTMLElement>(
 
             const container = containerRef.current;
 
+            // Gracefully handle case where container is unmounted during resize
             if (container === null) {
-              throw new Error("containerRef is not attached to an element");
+              return;
             }
 
             const rect = container.getBoundingClientRect();

@@ -10,8 +10,10 @@ export function useResizeObserver<T extends HTMLElement>(
   useEffect(() => {
     const element = ref.current;
 
+    // Gracefully handle case where ref is not yet attached
+    // This can happen during testing or when the element is conditionally rendered
     if (element === null) {
-      throw new Error("Ref is not attached to an element");
+      return;
     }
 
     const resizeObserver = new ResizeObserver((entries) => {

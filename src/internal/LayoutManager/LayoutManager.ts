@@ -334,13 +334,16 @@ export class LayoutManager {
     targetNode: LayoutNode;
     ratio?: number;
   }): SplitNode {
+    // Ensure ratio is within valid bounds (0-1)
+    const safeRatio = clamp(ratio, 0, 1);
+
     switch (direction) {
       case "left": {
         return {
           id: generateId(),
           type: "split",
           orientation: "horizontal",
-          ratio,
+          ratio: safeRatio,
           left: sourceNode,
           right: targetNode,
         };
@@ -350,7 +353,7 @@ export class LayoutManager {
           id: generateId(),
           type: "split",
           orientation: "horizontal",
-          ratio,
+          ratio: safeRatio,
           left: targetNode,
           right: sourceNode,
         };
@@ -360,7 +363,7 @@ export class LayoutManager {
           id: generateId(),
           type: "split",
           orientation: "vertical",
-          ratio,
+          ratio: safeRatio,
           left: sourceNode,
           right: targetNode,
         };
@@ -370,7 +373,7 @@ export class LayoutManager {
           id: generateId(),
           type: "split",
           orientation: "vertical",
-          ratio,
+          ratio: safeRatio,
           left: targetNode,
           right: sourceNode,
         };

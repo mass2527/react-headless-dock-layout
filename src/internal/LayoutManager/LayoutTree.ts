@@ -1,12 +1,13 @@
 import type { LayoutNode, SplitNode } from "../../types";
 import { assertNever } from "../assertNever";
+import { clamp } from "../clamp";
 import { findParentNode } from "../findParentNode";
 
 export class LayoutTree {
   private _root: LayoutNode | null = null;
 
   constructor(root: LayoutNode | null) {
-    this._root = root;
+    this._root = sanitizeTree(root);
   }
 
   get root() {
@@ -14,7 +15,7 @@ export class LayoutTree {
   }
 
   set root(root: LayoutNode | null) {
-    this._root = root;
+    this._root = sanitizeTree(root);
   }
 
   findNode(id: string) {
@@ -69,5 +70,28 @@ export class LayoutTree {
         `Child node with id ${oldChildId} is not a child of the parent node with id ${parent.id}`,
       );
     }
+  }
+}
+
+/**
+ * Sanitizes a layout tree by clamping all split ratios to valid bounds (0-1).
+ * This prevents invalid ratios from corrupting layout calculations.
+ */
+function sanitizeTree(node: LayoutNode | null): LayoutNode | null {
+  if (node === null) {
+    return null;
+  }
+
+  if (node.type === "panel") {
+    return node;
+  } else if (node.type === "split") {
+    // Clamp ratio to valid bounds
+    node.ratio = clamp(node.ratio, 0, 1);
+    // Recursively sanitize children
+    sanitizeTree(node.left);
+    sanitizeTree(node.right);
+    return node;
+  } else {
+    assertNever(node);
   }
 }
