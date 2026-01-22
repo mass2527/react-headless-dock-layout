@@ -1,57 +1,50 @@
-import { assertNever } from "./internal/assertNever";
-import type { Direction } from "./internal/LayoutManager/types";
-import type { LayoutNode } from "./types";
+import type { LayoutNode, PlacementStrategy, PlacementResult } from "./types";
 
-export interface PlacementStrategy {
-  /**
-   * Calculates the placement for a new panel based on the current layout tree.
-   *
-   * @param root - The root node of the current layout tree.
-   * @returns Placement configuration specifying:
-   *   - `targetId`: The ID of the panel that will be split to make room for the new panel
-   *   - `direction`: The direction in which to split (`"top"`, `"bottom"`, `"left"`, or `"right"`)
-   *   - `ratio`: The ratio for dividing space (0-1, where 0.5 is equal split)
-   */
-  getPlacementOnAdd(root: LayoutNode): {
-    targetId: string;
-    direction: Direction;
-    ratio: number;
-  };
+/**
+ * Finds the rightmost panel in the tree.
+ * Used by equalWidthRightStrategy to add panels to the right.
+ */
+function findRightmostPanel(node: LayoutNode): string {
+  if (node.type === "panel") {
+    return node.id;
+  }
+
+  // For splits, recursively find rightmost in the right child
+  return findRightmostPanel(node.right);
 }
 
 /**
- * Default placement strategy that adds panels to the right with equal widths.
- * New panels are added by splitting the root panel horizontally, maintaining equal widths
- * for all panels.
+ * Counts the number of panels in the tree.
+ */
+function countPanels(node: LayoutNode): number {
+  if (node.type === "panel") {
+    return 1;
+  }
+  return countPanels(node.left) + countPanels(node.right);
+}
+
+/**
+ * Default placement strategy that:
+ * 1. Adds new panels to the right of the rightmost panel
+ * 2. Calculates ratio to maintain equal widths for all panels
+ *
+ * Example: With 2 existing panels, adding a third results in
+ * ratio 2/3 (existing) vs 1/3 (new panel)
  */
 export const equalWidthRightStrategy: PlacementStrategy = {
-  getPlacementOnAdd(root) {
-    const horizontalSplitCount = countHorizontalSplits(root) + 1;
+  getPlacementOnAdd(root: LayoutNode): PlacementResult {
+    const targetId = findRightmostPanel(root);
+    const existingPanels = countPanels(root);
+
+    // Calculate ratio so all panels have equal width
+    // If there are N existing panels and we add 1 more,
+    // the existing content should take N/(N+1) of the space
+    const ratio = existingPanels / (existingPanels + 1);
 
     return {
-      targetId: root.id,
+      targetId,
       direction: "right",
-      ratio: horizontalSplitCount / (horizontalSplitCount + 1),
+      ratio,
     };
   },
 };
-
-function countHorizontalSplits(node: LayoutNode): number {
-  if (node.type === "panel") {
-    return 0;
-  } else if (node.type === "split") {
-    if (node.orientation === "horizontal") {
-      return (
-        1 + countHorizontalSplits(node.left) + countHorizontalSplits(node.right)
-      );
-    } else if (node.orientation === "vertical") {
-      return (
-        countHorizontalSplits(node.left) + countHorizontalSplits(node.right)
-      );
-    } else {
-      assertNever(node.orientation);
-    }
-  } else {
-    assertNever(node);
-  }
-}

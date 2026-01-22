@@ -1,16 +1,17 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 
-// biome-ignore lint/suspicious/noExplicitAny: Generic function type requires any for flexible argument types
-export function useStableCallback<T extends (...args: any[]) => unknown>(
-  callback: T,
-) {
-  const callbackRef = useRef(callback);
+/**
+ * Returns a stable callback that always invokes the latest version of fn.
+ * Useful for avoiding stale closures in event handlers.
+ */
+export function useStableCallback<T extends (...args: never[]) => unknown>(
+  fn: T
+): T {
+  const fnRef = useRef(fn);
+  fnRef.current = fn;
 
-  useEffect(() => {
-    callbackRef.current = callback;
-  }, [callback]);
-
-  return useCallback((...args: Parameters<T>) => {
-    return callbackRef.current(...args) as ReturnType<T>;
-  }, []);
+  return useCallback(
+    ((...args: Parameters<T>) => fnRef.current(...args)) as T,
+    []
+  );
 }

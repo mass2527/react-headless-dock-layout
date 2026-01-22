@@ -1,335 +1,340 @@
 import {
-  type CSSProperties,
-  type PointerEvent as ReactPointerEvent,
-  useState,
   useSyncExternalStore,
+  useRef,
+  useCallback,
+  useState,
+  type RefCallback,
+  type PointerEvent as ReactPointerEvent,
+  type CSSProperties,
 } from "react";
-import { assertNever } from "./internal/assertNever";
-import { LayoutManager } from "./internal/LayoutManager/LayoutManager";
-import type { Direction } from "./internal/LayoutManager/types";
-import { useCursor } from "./internal/useCursor";
-import { useResizeObserver } from "./internal/useResizeObserver";
 import type {
-  LayoutManagerOptions,
   LayoutNode,
   LayoutRect,
   PanelLayoutRect,
   SplitLayoutRect,
+  LayoutManagerOptions,
+  DropDirection,
+  MinSize,
 } from "./types";
+import { LayoutManager } from "./internal/LayoutManager/LayoutManager";
+import { useResizeObserver } from "./internal/useResizeObserver";
+import { useStableCallback } from "./internal/useStableCallback";
+import { useCursor } from "./internal/useCursor";
+import {
+  findClosestDirection,
+  getDropIndicatorRect,
+} from "./internal/LayoutManager/findClosestDirection";
+
+// === Types ===
+
+interface RectProps {
+  style: CSSProperties;
+  onPointerDown?: (e: ReactPointerEvent) => void;
+  onPointerMove?: (e: ReactPointerEvent) => void;
+  onPointerUp?: (e: ReactPointerEvent) => void;
+  "data-dock-rect"?: string;
+}
+
+interface DragHandleProps {
+  onPointerDown: (e: ReactPointerEvent) => void;
+  style: { touchAction: "none" };
+}
+
+interface DropIndicatorProps {
+  style: CSSProperties;
+  "data-direction": DropDirection;
+}
+
+export interface UseDockLayoutReturn<T extends HTMLElement> {
+  /** Ref callback to attach to the container element */
+  containerRef: RefCallback<T>;
+  /** Array of rectangles for all panels and split bars */
+  layoutRects: LayoutRect[];
+  /** Currently dragged panel rect, or null */
+  draggingRect: PanelLayoutRect | null;
+  /** Current layout tree (for persistence) */
+  root: LayoutNode | null;
+  /** Get props for a rect element (panel or split bar) */
+  getRectProps: (rect: LayoutRect) => RectProps;
+  /** Get props for a drag handle within a panel */
+  getDragHandleProps: (rect: PanelLayoutRect) => DragHandleProps;
+  /** Get props for a drop indicator (returns null if not applicable) */
+  getDropIndicatorProps: (rect: PanelLayoutRect) => DropIndicatorProps | null;
+  /** Add a new panel to the layout */
+  addPanel: (id: string, minSize?: MinSize) => void;
+  /** Remove a panel from the layout */
+  removePanel: (id: string) => void;
+}
 
 /**
- * Main hook for managing a dock layout.
+ * Main hook for creating a dock layout.
  *
- * This hook provides all the necessary state and functions to create and manage
- * a resizable, draggable dock layout system. It handles panel addition/removal,
- * drag-and-drop, and resize operations.
- *
- * @param initialRoot - Initial layout tree root node. Can be:
- *   - `null` for an empty layout
- *   - A `LayoutNode` object
- *   - A function that returns `LayoutNode | null` (useful for lazy initialization)
- * @param options - Optional configuration for the layout manager.
- * @returns An object containing layout state and helper functions.
- *
- * @example
- * ```tsx
- * // Start with an empty layout
- * const {
- *   containerRef,
- *   layoutRects,
- *   addPanel,
- *   removePanel,
- *   getRectProps,
- *   getDragHandleProps,
- * } = useDockLayout<HTMLDivElement>(null);
- * ```
- *
- * @example
- * ```tsx
- * // Load initial layout from localStorage
- * const {
- *   containerRef,
- *   layoutRects,
- *   addPanel,
- *   removePanel,
- *   getRectProps,
- *   getDragHandleProps,
- * } = useDockLayout<HTMLDivElement>(() => {
- *   const saved = localStorage.getItem("layout");
- *   if (saved === null) {
- *     return null;
- *   }
- *   return JSON.parse(saved);
- * });
- * ```
+ * @param initialRoot - Initial layout tree (or null for empty, or function)
+ * @param options - Configuration options
+ * @returns Object with layout state and interaction handlers
  */
-export function useDockLayout<T extends HTMLElement>(
+export function useDockLayout<T extends HTMLElement = HTMLDivElement>(
   initialRoot: LayoutNode | null | (() => LayoutNode | null),
-  options?: LayoutManagerOptions,
-) {
-  const [layoutManager] = useState(() => {
+  options: LayoutManagerOptions = {}
+): UseDockLayoutReturn<T> {
+  // Initialize manager once
+  const managerRef = useRef<LayoutManager | null>(null);
+  if (!managerRef.current) {
     const root =
       typeof initialRoot === "function" ? initialRoot() : initialRoot;
-    return new LayoutManager(root, options);
-  });
+    managerRef.current = new LayoutManager(root, options);
+  }
+  const manager = managerRef.current;
+
+  // Subscribe to manager state
   const layoutRects = useSyncExternalStore(
-    layoutManager.subscribe,
-    () => layoutManager.layoutRects,
+    useCallback((callback) => manager.subscribe(callback), [manager]),
+    useCallback(() => manager.getLayoutRects(), [manager]),
+    useCallback(() => manager.getLayoutRects(), [manager])
   );
-  const [resizingRect, setResizingRect] = useState<SplitLayoutRect | null>(
-    null,
-  );
-  const [draggingRect, setDraggingRect] = useState<PanelLayoutRect | null>(
-    null,
-  );
-  const [dropTarget, setDropTarget] = useState<{
-    id: string;
-    direction: Direction;
-  } | null>(null);
 
-  const containerRef = useResizeObserver<T>((entry) => {
-    layoutManager.setSize({
-      width: entry.contentRect.width,
-      height: entry.contentRect.height,
-    });
-  });
+  const root = useSyncExternalStore(
+    useCallback((callback) => manager.subscribe(callback), [manager]),
+    useCallback(() => manager.getRoot(), [manager]),
+    useCallback(() => manager.getRoot(), [manager])
+  );
 
-  useCursor(
-    resizingRect === null ? "default" : CURSORS[resizingRect.orientation],
+  const draggingRect = useSyncExternalStore(
+    useCallback((callback) => manager.subscribe(callback), [manager]),
+    useCallback(() => manager.getDraggingRect(), [manager]),
+    useCallback(() => manager.getDraggingRect(), [manager])
+  );
+
+  // Cursor management
+  const { setCursor } = useCursor();
+
+  // Track pointer position for drop indicator
+  const [pointerPosition, setPointerPosition] = useState({ x: 0, y: 0 });
+
+  // Container element reference
+  const containerElementRef = useRef<T | null>(null);
+
+  // Resize observer
+  const handleResize = useStableCallback(
+    (size: { width: number; height: number }) => {
+      manager.setSize(size);
+    }
+  );
+
+  const resizeRef = useResizeObserver(handleResize);
+
+  // Active resize/drag state
+  const activeResizeRef = useRef<string | null>(null);
+
+  // Container ref callback
+  const containerRef: RefCallback<T> = useCallback(
+    (element) => {
+      containerElementRef.current = element;
+      resizeRef(element);
+    },
+    [resizeRef]
+  );
+
+  // === getRectProps ===
+
+  const getRectProps = useCallback(
+    (rect: LayoutRect): RectProps => {
+      const baseStyle: CSSProperties = {
+        position: "absolute",
+        left: rect.x,
+        top: rect.y,
+        width: rect.width,
+        height: rect.height,
+        boxSizing: "border-box",
+      };
+
+      if (rect.type === "panel") {
+        return {
+          style: baseStyle,
+          "data-dock-rect": "panel",
+        };
+      }
+
+      // Split bar props
+      const splitRect = rect as SplitLayoutRect;
+
+      return {
+        style: {
+          ...baseStyle,
+          cursor:
+            splitRect.orientation === "horizontal" ? "col-resize" : "row-resize",
+          touchAction: "none",
+        },
+        "data-dock-rect": "split",
+        onPointerDown: (e: ReactPointerEvent) => {
+          e.preventDefault();
+          (e.target as HTMLElement).setPointerCapture(e.pointerId);
+          activeResizeRef.current = splitRect.id;
+          setCursor(
+            splitRect.orientation === "horizontal" ? "col-resize" : "row-resize"
+          );
+        },
+        onPointerMove: (e: ReactPointerEvent) => {
+          if (activeResizeRef.current !== splitRect.id) return;
+
+          const container = containerElementRef.current;
+          if (!container) return;
+
+          const containerRect = container.getBoundingClientRect();
+          const adjustedPosition =
+            splitRect.orientation === "horizontal"
+              ? e.clientX - containerRect.left
+              : e.clientY - containerRect.top;
+
+          manager.resizePanel(splitRect.id, adjustedPosition);
+        },
+        onPointerUp: (e: ReactPointerEvent) => {
+          (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+          activeResizeRef.current = null;
+          setCursor(null);
+        },
+      };
+    },
+    [manager, setCursor]
+  );
+
+  // === getDragHandleProps ===
+
+  const getDragHandleProps = useCallback(
+    (rect: PanelLayoutRect): DragHandleProps => {
+      return {
+        style: { touchAction: "none" },
+        onPointerDown: (e: ReactPointerEvent) => {
+          e.preventDefault();
+          manager.setDraggingPanel(rect.id);
+          setCursor("grabbing");
+
+          // Set up document-level move/up handlers
+          const handleMove = (moveEvent: PointerEvent) => {
+            setPointerPosition({
+              x: moveEvent.clientX,
+              y: moveEvent.clientY,
+            });
+          };
+
+          const handleUp = (upEvent: PointerEvent) => {
+            document.removeEventListener("pointermove", handleMove);
+            document.removeEventListener("pointerup", handleUp);
+
+            const sourceId = manager.getDraggingPanelId();
+            manager.setDraggingPanel(null);
+            setCursor(null);
+
+            if (!sourceId) return;
+
+            // Find drop target
+            const container = containerElementRef.current;
+            if (!container) return;
+
+            const containerRect = container.getBoundingClientRect();
+            const relativePointer = {
+              x: upEvent.clientX - containerRect.left,
+              y: upEvent.clientY - containerRect.top,
+            };
+
+            // Find which panel we dropped on
+            const panelRects = layoutRects.filter(
+              (r): r is PanelLayoutRect =>
+                r.type === "panel" && r.id !== sourceId
+            );
+
+            for (const panelRect of panelRects) {
+              if (
+                relativePointer.x >= panelRect.x &&
+                relativePointer.x <= panelRect.x + panelRect.width &&
+                relativePointer.y >= panelRect.y &&
+                relativePointer.y <= panelRect.y + panelRect.height
+              ) {
+                const direction = findClosestDirection(panelRect, relativePointer);
+                manager.movePanel(sourceId, panelRect.id, direction);
+                break;
+              }
+            }
+          };
+
+          document.addEventListener("pointermove", handleMove);
+          document.addEventListener("pointerup", handleUp);
+        },
+      };
+    },
+    [layoutRects, manager, setCursor]
+  );
+
+  // === getDropIndicatorProps ===
+
+  const getDropIndicatorProps = useCallback(
+    (rect: PanelLayoutRect): DropIndicatorProps | null => {
+      if (!draggingRect || draggingRect.id === rect.id) {
+        return null;
+      }
+
+      const container = containerElementRef.current;
+      if (!container) return null;
+
+      const containerRect = container.getBoundingClientRect();
+      const relativePointer = {
+        x: pointerPosition.x - containerRect.left,
+        y: pointerPosition.y - containerRect.top,
+      };
+
+      // Check if pointer is within this panel
+      if (
+        relativePointer.x < rect.x ||
+        relativePointer.x > rect.x + rect.width ||
+        relativePointer.y < rect.y ||
+        relativePointer.y > rect.y + rect.height
+      ) {
+        return null;
+      }
+
+      const direction = findClosestDirection(rect, relativePointer);
+      const indicatorRect = getDropIndicatorRect(rect, direction);
+
+      return {
+        style: {
+          position: "absolute",
+          left: indicatorRect.x,
+          top: indicatorRect.y,
+          width: indicatorRect.width,
+          height: indicatorRect.height,
+          pointerEvents: "none",
+        },
+        "data-direction": direction,
+      };
+    },
+    [draggingRect, pointerPosition]
+  );
+
+  // === Panel Operations ===
+
+  const addPanel = useCallback(
+    (id: string, minSize?: MinSize) => {
+      manager.addPanel(id, minSize);
+    },
+    [manager]
+  );
+
+  const removePanel = useCallback(
+    (id: string) => {
+      manager.removePanel(id);
+    },
+    [manager]
   );
 
   return {
-    /**
-     * Ref callback that must be attached to the container element.
-     * The container should have `position: relative` styling.
-     * The layout will automatically resize when the container size changes.
-     */
     containerRef,
-    /**
-     * Array of layout rectangles representing all panels and split bars.
-     * Each rectangle contains position, size, and type information.
-     * Use this to render your panels and split bars.
-     */
     layoutRects,
-    /**
-     * Returns props (style and event handlers) for a given layout rectangle.
-     * For split bars, returns style with cursor and pointer event handlers for resizing.
-     * For panels, returns style and pointer event handlers for drag-and-drop.
-     *
-     * @param rect - The layout rectangle to get props for.
-     * @returns An object with `style` and event handler props.
-     */
-    getRectProps: (rect: LayoutRect) => {
-      if (rect.type === "split") {
-        return {
-          style: {
-            position: "absolute",
-            left: rect.x,
-            top: rect.y,
-            width: rect.width,
-            height: rect.height,
-            cursor: CURSORS[rect.orientation],
-            touchAction: "none",
-          },
-          onPointerDown: (event: ReactPointerEvent) => {
-            event.currentTarget.setPointerCapture(event.pointerId);
-            setResizingRect(rect);
-          },
-          onPointerMove: (event: ReactPointerEvent) => {
-            if (resizingRect === null) {
-              return;
-            }
-
-            const container = containerRef.current;
-
-            if (container === null) {
-              throw new Error("containerRef is not attached to an element");
-            }
-
-            const rect = container.getBoundingClientRect();
-            layoutManager.resizePanel(resizingRect.id, {
-              x: event.clientX - rect.left,
-              y: event.clientY - rect.top,
-            });
-          },
-          onPointerUp: (event: ReactPointerEvent) => {
-            if (resizingRect === null) {
-              return;
-            }
-
-            event.currentTarget.releasePointerCapture(event.pointerId);
-            setResizingRect(null);
-          },
-        } as const;
-      } else if (rect.type === "panel") {
-        return {
-          style: {
-            position: "absolute",
-            left: rect.x,
-            top: rect.y,
-            width: rect.width,
-            height: rect.height,
-          } as const,
-          onPointerMove: (event: ReactPointerEvent<T>) => {
-            if (draggingRect === null) {
-              return;
-            }
-
-            if (draggingRect.id === rect.id) {
-              setDropTarget(null);
-              return;
-            }
-
-            const dropTarget = layoutManager.calculateDropTarget({
-              draggedPanelId: draggingRect.id,
-              targetPanelId: rect.id,
-              point: {
-                x: event.clientX,
-                y: event.clientY,
-              },
-            });
-            setDropTarget(dropTarget);
-          },
-          onPointerUp: (event: ReactPointerEvent<T>) => {
-            if (draggingRect === null) {
-              return;
-            }
-
-            if (draggingRect.id === rect.id) {
-              setDraggingRect(null);
-              setDropTarget(null);
-              return;
-            }
-
-            layoutManager.movePanel({
-              sourceId: draggingRect.id,
-              targetId: rect.id,
-              point: {
-                x: event.clientX,
-                y: event.clientY,
-              },
-            });
-            setDraggingRect(null);
-            setDropTarget(null);
-          },
-        } as const;
-      } else {
-        assertNever(rect);
-      }
-    },
-    /**
-     * Returns props for rendering a drop indicator overlay on a panel.
-     * The drop indicator shows where a dragged panel will be placed.
-     * Returns `null` if no panel is being dragged or if this panel is not the drop target.
-     *
-     * @param rect - The panel layout rectangle to get drop indicator props for.
-     * @returns An object with `style` for the drop indicator, or `null` if not applicable.
-     */
-    getDropIndicatorProps: (rect: PanelLayoutRect) => {
-      if (draggingRect === null) {
-        return null;
-      }
-
-      const isDropTargetRect = rect.id === dropTarget?.id;
-      if (!isDropTargetRect) {
-        return null;
-      }
-
-      return {
-        style: getDropIndicatorStyle(dropTarget.direction),
-      };
-    },
-    /**
-     * Returns props for a drag handle element.
-     * Attach these props to a button or element that users can drag to move panels.
-     *
-     * @param rect - The panel layout rectangle to get drag handle props for.
-     * @returns An object with `onPointerDown` handler and `style` that initiates dragging.
-     */
-    getDragHandleProps: (rect: PanelLayoutRect) => {
-      return {
-        onPointerDown: (event: ReactPointerEvent) => {
-          event.currentTarget.releasePointerCapture(event.pointerId);
-          setDraggingRect(rect);
-        },
-        style: {
-          touchAction: "none",
-        },
-      };
-    },
-    /**
-     * The currently dragging panel rectangle, or `null` if no panel is being dragged.
-     * Use this to apply visual feedback (e.g., reduce opacity) to the dragging panel.
-     */
     draggingRect,
-    /**
-     * Adds a new panel to the layout.
-     * The panel will be placed according to the configured placement strategy.
-     *
-     * @param id - Unique identifier for the new panel.
-     * @throws {Error} If the target node with the ID returned by the placement strategy is not found in the layout tree.
-     */
-    addPanel: layoutManager.addPanel.bind(layoutManager),
-    /**
-     * Removes a panel from the layout.
-     * If it's the last panel, the layout becomes empty (root becomes `null`).
-     * The layout tree is automatically restructured to remove empty splits.
-     *
-     * @param id - The ID of the panel to remove.
-     * @throws {Error} If the panel is not found or if the root is null.
-     */
-    removePanel: layoutManager.removePanel.bind(layoutManager),
-    /**
-     * The current root node of the layout tree.
-     * Use this to serialize the layout state (e.g., `JSON.stringify(root)`).
-     * Can be `null` if the layout is empty.
-     */
-    root: layoutManager.root,
+    root,
+    getRectProps,
+    getDragHandleProps,
+    getDropIndicatorProps,
+    addPanel,
+    removePanel,
   };
 }
-
-function getDropIndicatorStyle(direction: Direction) {
-  if (direction === "top") {
-    return {
-      position: "absolute",
-      left: 0,
-      top: 0,
-      width: "100%",
-      height: "50%",
-    } as const;
-  } else if (direction === "bottom") {
-    return {
-      position: "absolute",
-      left: 0,
-      top: "50%",
-      width: "100%",
-      height: "50%",
-    } as const;
-  } else if (direction === "left") {
-    return {
-      position: "absolute",
-      left: 0,
-      top: 0,
-      width: "50%",
-      height: "100%",
-    } as const;
-  } else if (direction === "right") {
-    return {
-      position: "absolute",
-      left: "50%",
-      top: 0,
-      width: "50%",
-      height: "100%",
-    } as const;
-  } else {
-    assertNever(direction);
-  }
-}
-
-const CURSORS: Record<
-  SplitLayoutRect["orientation"],
-  NonNullable<CSSProperties["cursor"]>
-> = {
-  horizontal: "col-resize",
-  vertical: "row-resize",
-};

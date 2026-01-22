@@ -1,491 +1,325 @@
-import { equalWidthRightStrategy } from "../../strategies";
 import type {
-  LayoutManagerOptions,
   LayoutNode,
   LayoutRect,
+  PanelLayoutRect,
   SplitLayoutRect,
+  ContainerSize,
+  LayoutManagerOptions,
+  PlacementStrategy,
+  DropDirection,
   SplitNode,
+  PanelNode,
 } from "../../types";
-import { assertNever } from "../assertNever";
+import { calculateLayoutRects } from "./calculateLayoutRects";
+import { calculateMinSize } from "./calculateMinSize";
+import {
+  findNode,
+  findParentNode,
+  removeNode,
+  replaceNode,
+  updateSplitRatio,
+} from "./LayoutTree";
 import { clamp } from "../clamp";
 import { generateId } from "../generateId";
 import { invariant } from "../invariant";
 
-import { calculateLayoutRects } from "./calculateLayoutRects";
-import { calculateMinSize } from "./calculateMinSize";
-import { findClosestDirection } from "./findClosestDirection";
-import { LayoutTree } from "./LayoutTree";
-import type { Direction, Point, Rect, Size } from "./types";
+const DEFAULT_GAP = 10;
+const MIN_RATIO = 0.1;
+const MAX_RATIO = 0.9;
+
+type Listener = () => void;
 
 export class LayoutManager {
-  private readonly MIN_RESIZE_RATIO = 0.1;
-  private readonly MAX_RESIZE_RATIO = 0.9;
+  private root: LayoutNode | null;
+  private size: ContainerSize = { width: 0, height: 0 };
+  private gap: number;
+  private placementStrategy: PlacementStrategy | null;
+  private layoutRects: LayoutRect[] = [];
+  private listeners: Set<Listener> = new Set();
 
-  private _tree: LayoutTree;
-  private _options: Required<LayoutManagerOptions> & { size: Size };
-  private _listeners = new Set<() => void>();
-  private _layoutRects: LayoutRect[] = [];
+  // Drag state
+  private draggingPanelId: string | null = null;
 
-  constructor(root: LayoutNode | null, options?: LayoutManagerOptions) {
-    this._tree = new LayoutTree(root);
-    this._options = {
-      gap: options?.gap ?? 10,
-      size: { width: 0, height: 0 },
-      placementStrategy: options?.placementStrategy ?? equalWidthRightStrategy,
-    };
-
-    this._layoutRects = calculateLayoutRects(root, this._options);
+  constructor(
+    initialRoot: LayoutNode | null,
+    options: LayoutManagerOptions = {}
+  ) {
+    this.root = initialRoot;
+    this.gap = options.gap ?? DEFAULT_GAP;
+    this.placementStrategy = options.placementStrategy ?? null;
   }
 
-  get root() {
-    return this._tree.root;
+  // === Subscription API (for useSyncExternalStore) ===
+
+  subscribe(listener: Listener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
-  set root(root: LayoutNode | null) {
-    this._tree.root = root;
-    this.syncLayoutRects();
+  private notify(): void {
+    for (const listener of this.listeners) {
+      listener();
+    }
   }
 
-  get layoutRects() {
-    return this._layoutRects;
+  // === Getters ===
+
+  getRoot(): LayoutNode | null {
+    return this.root;
   }
 
-  subscribe = (listener: () => void) => {
-    this._listeners.add(listener);
-
-    return () => {
-      this._listeners.delete(listener);
-    };
-  };
-
-  setSize(size: Size) {
-    this._options.size = size;
-    this.syncLayoutRects();
+  getLayoutRects(): LayoutRect[] {
+    return this.layoutRects;
   }
 
-  removePanel(id: string) {
-    if (this._tree.root === null) {
-      throw new Error("Root node is null");
-    }
+  getDraggingRect(): PanelLayoutRect | null {
+    if (!this.draggingPanelId) return null;
 
-    const node = this._tree.findNode(id);
-
-    if (node === null) {
-      throw new Error(`Node with id ${id} not found`);
-    }
-
-    if (node.type !== "panel") {
-      throw new Error(`Node with id ${id} is not a panel`);
-    }
-
-    if (node.id === this._tree.root.id) {
-      this._tree.root = null;
-      this.syncLayoutRects();
-      return;
-    }
-
-    const parentNode = this._tree.findParentNode(id);
-    invariant(parentNode !== null, "Parent node is not null");
-
-    const siblingNode =
-      parentNode.left.id === node.id ? parentNode.right : parentNode.left;
-
-    if (parentNode.id === this._tree.root.id) {
-      this._tree.root = siblingNode;
-      this.syncLayoutRects();
-      return;
-    }
-
-    const grandParentNode = this._tree.findParentNode(parentNode.id);
-    invariant(grandParentNode !== null, "Grand parent node is not null");
-
-    this._tree.replaceChildNode({
-      parent: grandParentNode,
-      oldChildId: parentNode.id,
-      newChild: siblingNode,
-    });
-    this.syncLayoutRects();
-  }
-
-  movePanel({
-    sourceId,
-    targetId,
-    point,
-  }: {
-    sourceId: string;
-    targetId: string;
-    point: Point;
-  }) {
-    if (this._tree.root === null) {
-      throw new Error("Root node is null");
-    }
-    if (this._tree.root.type !== "split") {
-      throw new Error("Root node is not a split node");
-    }
-
-    const sourceNode = this._tree.findNode(sourceId);
-
-    if (sourceNode === null) {
-      throw new Error(`Node with id ${sourceId} not found`);
-    }
-    if (sourceNode.type !== "panel") {
-      throw new Error(`Node with id ${sourceId} is not a panel node`);
-    }
-
-    const sourceNodeParent = this._tree.findParentNode(sourceId);
-    invariant(sourceNodeParent !== null);
-
-    const targetNode = this._tree.findNode(targetId);
-
-    if (targetNode === null) {
-      throw new Error(`Node with id ${targetId} not found`);
-    }
-    if (targetNode.type !== "panel") {
-      throw new Error(`Node with id ${targetId} is not a panel node`);
-    }
-
-    const sourceNodeSibling =
-      sourceNodeParent.left.id === sourceId
-        ? sourceNodeParent.right
-        : sourceNodeParent.left;
-
-    const targetRect = this.findRect(targetId);
-    invariant(targetRect !== null);
-    invariant(targetRect.type === "panel");
-    const direction = findClosestDirection(targetRect, point);
-
-    if (sourceNodeSibling.id === targetId) {
-      if (direction === "left") {
-        sourceNodeParent.orientation = "horizontal";
-        sourceNodeParent.left = sourceNode;
-        sourceNodeParent.right = targetNode;
-      } else if (direction === "right") {
-        sourceNodeParent.orientation = "horizontal";
-        sourceNodeParent.left = targetNode;
-        sourceNodeParent.right = sourceNode;
-      } else if (direction === "top") {
-        sourceNodeParent.orientation = "vertical";
-        sourceNodeParent.left = sourceNode;
-        sourceNodeParent.right = targetNode;
-      } else if (direction === "bottom") {
-        sourceNodeParent.orientation = "vertical";
-        sourceNodeParent.left = targetNode;
-        sourceNodeParent.right = sourceNode;
-      } else {
-        assertNever(direction);
-      }
-      this.syncLayoutRects();
-      return;
-    }
-
-    const sourceNodeGrandParent = this._tree.findParentNode(
-      sourceNodeParent.id,
+    const rect = this.layoutRects.find(
+      (r) => r.type === "panel" && r.id === this.draggingPanelId
     );
-    if (sourceNodeGrandParent === null) {
-      this._tree.root = sourceNodeSibling;
+
+    return (rect as PanelLayoutRect) ?? null;
+  }
+
+  // === Size Management ===
+
+  setSize(size: ContainerSize): void {
+    if (this.size.width === size.width && this.size.height === size.height) {
+      return;
+    }
+
+    this.size = size;
+    this.syncLayoutRects();
+  }
+
+  private syncLayoutRects(): void {
+    this.layoutRects = calculateLayoutRects(this.root, this.size, {
+      gap: this.gap,
+    });
+    this.notify();
+  }
+
+  // === Panel Operations ===
+
+  addPanel(id: string, minSize?: { width?: number; height?: number }): void {
+    const newPanel: PanelNode = {
+      type: "panel",
+      id,
+      minSize,
+    };
+
+    // If tree is empty, new panel becomes root
+    if (!this.root) {
+      this.root = newPanel;
+      this.syncLayoutRects();
+      return;
+    }
+
+    // Use placement strategy or default behavior
+    if (this.placementStrategy) {
+      const placement = this.placementStrategy.getPlacementOnAdd(this.root);
+      this.insertPanelAt(
+        newPanel,
+        placement.targetId,
+        placement.direction,
+        placement.ratio ?? 0.5
+      );
     } else {
-      this._tree.replaceChildNode({
-        parent: sourceNodeGrandParent,
-        oldChildId: sourceNodeParent.id,
-        newChild: sourceNodeSibling,
-      });
+      // Default: add to the right of the root with 50% split
+      this.insertPanelAt(newPanel, this.root.id, "right", 0.5);
     }
+  }
 
-    const targetNodeParent = this._tree.findParentNode(targetId);
-    invariant(targetNodeParent !== null);
-    const splitNode = this.createSplitNode({
-      direction,
-      sourceNode,
-      targetNode,
-    });
+  removePanel(id: string): void {
+    if (!this.root) return;
 
-    this._tree.replaceChildNode({
-      parent: targetNodeParent,
-      oldChildId: targetId,
-      newChild: splitNode,
-    });
-
+    this.root = removeNode(this.root, id);
     this.syncLayoutRects();
   }
 
-  resizePanel(id: string, point: Point) {
-    if (this._tree.root === null) {
-      throw new Error("Root node is null");
-    }
+  /**
+   * Inserts a panel adjacent to a target node.
+   * Creates a new split node to contain both.
+   */
+  private insertPanelAt(
+    panel: PanelNode,
+    targetId: string,
+    direction: DropDirection,
+    ratio: number
+  ): void {
+    invariant(this.root, "Cannot insert panel when root is null");
 
-    const resizingRect = this.findRect(id);
+    const targetNode = findNode(this.root, targetId);
+    invariant(targetNode, `Target node not found: ${targetId}`);
 
-    if (resizingRect === null) {
-      throw new Error(`Rect with id ${id} not found`);
-    }
+    const orientation: "horizontal" | "vertical" =
+      direction === "left" || direction === "right" ? "horizontal" : "vertical";
 
-    if (resizingRect.type !== "split") {
-      throw new Error(`Rect with id ${id} is not a split node`);
-    }
+    // Determine which node goes left/right (or top/bottom)
+    const panelFirst = direction === "left" || direction === "top";
 
-    const splitNode = this._tree.findNode(id);
-    invariant(splitNode !== null, "Split node is not null");
-    invariant(splitNode.type === "split", "Split node is a split");
+    const newSplit: SplitNode = {
+      type: "split",
+      id: generateId(),
+      orientation,
+      ratio: panelFirst ? ratio : 1 - ratio,
+      left: panelFirst ? panel : targetNode,
+      right: panelFirst ? targetNode : panel,
+    };
 
-    splitNode.ratio = this.calculateResizeRatio(splitNode, resizingRect, point);
-
+    // Replace target with new split
+    this.root = replaceNode(this.root, targetId, newSplit);
     this.syncLayoutRects();
   }
 
-  addPanel(id: string) {
-    if (this._tree.root === null) {
-      this._tree.root = {
-        id,
-        type: "panel",
-      };
-      this.syncLayoutRects();
-      return;
-    }
+  // === Move Panel (Drag and Drop) ===
 
-    const {
-      targetId,
-      direction,
-      ratio = 0.5,
-    } = this._options.placementStrategy.getPlacementOnAdd(this._tree.root);
+  /**
+   * Moves a panel to a new position relative to a target.
+   */
+  movePanel(
+    sourceId: string,
+    targetId: string,
+    direction: DropDirection
+  ): void {
+    if (!this.root || sourceId === targetId) return;
 
-    if (targetId === this._tree.root.id) {
-      this._tree.root = this.createSplitNode({
-        direction,
-        ratio,
-        sourceNode: {
-          id,
-          type: "panel",
-        },
-        targetNode: this._tree.root,
-      });
-
-      this.syncLayoutRects();
-      return;
-    }
-
-    const targetNode = this._tree.findNode(targetId);
-
-    if (targetNode === null) {
-      throw new Error(`Node with id ${targetId} not found`);
-    }
-
-    const targetNodeParent = this._tree.findParentNode(targetId);
-    invariant(targetNodeParent !== null, "Target node parent is not null");
-
-    const splitNode = this.createSplitNode({
-      direction,
-      sourceNode: {
-        id,
-        type: "panel",
-      },
-      targetNode,
-      ratio,
-    });
-    this._tree.replaceChildNode({
-      parent: targetNodeParent,
-      oldChildId: targetId,
-      newChild: splitNode,
-    });
-    this.syncLayoutRects();
-  }
-
-  calculateDropTarget({
-    draggedPanelId,
-    targetPanelId,
-    point,
-  }: {
-    draggedPanelId: string;
-    targetPanelId: string;
-    point: Point;
-  }) {
+    // Find the source panel
+    const sourceNode = findNode(this.root, sourceId);
     invariant(
-      draggedPanelId !== targetPanelId,
-      "Dragged panel id is not the same as target panel id",
+      sourceNode && sourceNode.type === "panel",
+      "Source must be a panel"
     );
 
-    const targetRect = this.findRect(targetPanelId);
-    invariant(targetRect !== null && targetRect.type === "panel");
+    // Remove source from tree (but keep reference)
+    const treeWithoutSource = removeNode(this.root, sourceId);
+
+    if (!treeWithoutSource) {
+      // Source was the only node, nothing to do
+      return;
+    }
+
+    // Update root and insert source at new location
+    this.root = treeWithoutSource;
+    this.insertPanelAt(sourceNode, targetId, direction, 0.5);
+  }
+
+  // === Resize Operations ===
+
+  /**
+   * Updates the ratio of a split node during resize.
+   * Enforces minimum size constraints.
+   */
+  resizePanel(splitId: string, pointerPosition: number): void {
+    if (!this.root) return;
+
+    const splitNode = findNode(this.root, splitId);
+    invariant(
+      splitNode && splitNode.type === "split",
+      "Resize target must be a split node"
+    );
+
+    // Find the split bar rect to get its position
+    const splitRect = this.layoutRects.find(
+      (r) => r.type === "split" && r.id === splitId
+    ) as SplitLayoutRect | undefined;
+    invariant(splitRect, "Split rect not found");
+
+    // Calculate available space for this split
+    const bounds = this.findSplitBounds(splitId);
+
+    // Calculate new ratio based on pointer position
+    let newRatio: number;
+
+    if (splitNode.orientation === "horizontal") {
+      const availableWidth = bounds.width - this.gap;
+      const relativeX = pointerPosition - bounds.x;
+      newRatio = relativeX / (availableWidth + this.gap);
+    } else {
+      const availableHeight = bounds.height - this.gap;
+      const relativeY = pointerPosition - bounds.y;
+      newRatio = relativeY / (availableHeight + this.gap);
+    }
+
+    // Calculate min/max ratio based on child constraints
+    const leftMinSize = calculateMinSize(splitNode.left, this.gap);
+    const rightMinSize = calculateMinSize(splitNode.right, this.gap);
+
+    let minRatio = MIN_RATIO;
+    let maxRatio = MAX_RATIO;
+
+    if (splitNode.orientation === "horizontal") {
+      const totalWidth = bounds.width - this.gap;
+      if (totalWidth > 0) {
+        minRatio = Math.max(MIN_RATIO, leftMinSize.width / totalWidth);
+        maxRatio = Math.min(MAX_RATIO, 1 - rightMinSize.width / totalWidth);
+      }
+    } else {
+      const totalHeight = bounds.height - this.gap;
+      if (totalHeight > 0) {
+        minRatio = Math.max(MIN_RATIO, leftMinSize.height / totalHeight);
+        maxRatio = Math.min(MAX_RATIO, 1 - rightMinSize.height / totalHeight);
+      }
+    }
+
+    // Clamp and apply
+    newRatio = clamp(newRatio, minRatio, maxRatio);
+    this.root = updateSplitRatio(this.root, splitId, newRatio);
+    this.syncLayoutRects();
+  }
+
+  /**
+   * Finds the bounding rect for a split's available space.
+   */
+  private findSplitBounds(
+    splitId: string
+  ): { x: number; y: number; width: number; height: number } {
+    const splitNode = findNode(this.root!, splitId) as SplitNode;
+    if (!splitNode) {
+      return { x: 0, y: 0, width: this.size.width, height: this.size.height };
+    }
+
+    // Find all panel rects that are descendants of this split
+    const childIds = this.collectChildPanelIds(splitNode);
+
+    const childRects = this.layoutRects.filter(
+      (r) => r.type === "panel" && childIds.includes(r.id)
+    );
+
+    if (childRects.length === 0) {
+      return { x: 0, y: 0, width: this.size.width, height: this.size.height };
+    }
+
+    const minX = Math.min(...childRects.map((r) => r.x));
+    const minY = Math.min(...childRects.map((r) => r.y));
+    const maxX = Math.max(...childRects.map((r) => r.x + r.width));
+    const maxY = Math.max(...childRects.map((r) => r.y + r.height));
 
     return {
-      id: targetPanelId,
-      direction: findClosestDirection(targetRect, point),
+      x: minX,
+      y: minY,
+      width: maxX - minX + this.gap,
+      height: maxY - minY + this.gap,
     };
   }
 
-  private emit() {
-    this._listeners.forEach((listener) => {
-      listener();
-    });
+  private collectChildPanelIds(node: LayoutNode): string[] {
+    if (node.type === "panel") return [node.id];
+    return [
+      ...this.collectChildPanelIds(node.left),
+      ...this.collectChildPanelIds(node.right),
+    ];
   }
 
-  private syncLayoutRects() {
-    this._layoutRects = calculateLayoutRects(this._tree.root, this._options);
-    this.emit();
+  // === Drag State ===
+
+  setDraggingPanel(id: string | null): void {
+    this.draggingPanelId = id;
+    this.notify();
   }
 
-  private createSplitNode({
-    direction,
-    sourceNode,
-    targetNode,
-    ratio = 0.5,
-  }: {
-    direction: Direction;
-    sourceNode: LayoutNode;
-    targetNode: LayoutNode;
-    ratio?: number;
-  }): SplitNode {
-    switch (direction) {
-      case "left": {
-        return {
-          id: generateId(),
-          type: "split",
-          orientation: "horizontal",
-          ratio,
-          left: sourceNode,
-          right: targetNode,
-        };
-      }
-      case "right": {
-        return {
-          id: generateId(),
-          type: "split",
-          orientation: "horizontal",
-          ratio,
-          left: targetNode,
-          right: sourceNode,
-        };
-      }
-      case "top": {
-        return {
-          id: generateId(),
-          type: "split",
-          orientation: "vertical",
-          ratio,
-          left: sourceNode,
-          right: targetNode,
-        };
-      }
-      case "bottom": {
-        return {
-          id: generateId(),
-          type: "split",
-          orientation: "vertical",
-          ratio,
-          left: targetNode,
-          right: sourceNode,
-        };
-      }
-      default: {
-        assertNever(direction);
-      }
-    }
-  }
-
-  private findRect(id: string) {
-    return this._layoutRects.find((rect) => rect.id === id) ?? null;
-  }
-
-  private getSurroundingRect(id: string): Rect {
-    const node = this._tree.findNode(id);
-    invariant(node !== null, "Node is not null");
-
-    if (node.type === "panel") {
-      const rect = this.findRect(id);
-      invariant(rect !== null, "Rect is not null");
-      invariant(rect.type === "panel", "Rect is a panel");
-
-      return {
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: rect.height,
-      };
-    } else if (node.type === "split") {
-      const leftRect = this.getSurroundingRect(node.left.id);
-      const rightRect = this.getSurroundingRect(node.right.id);
-
-      if (node.orientation === "horizontal") {
-        return {
-          x: leftRect.x,
-          y: leftRect.y,
-          width: leftRect.width + this._options.gap + rightRect.width,
-          height: leftRect.height,
-        };
-      } else if (node.orientation === "vertical") {
-        return {
-          x: leftRect.x,
-          y: leftRect.y,
-          width: leftRect.width,
-          height: leftRect.height + this._options.gap + rightRect.height,
-        };
-      } else {
-        assertNever(node.orientation);
-      }
-    } else {
-      assertNever(node);
-    }
-  }
-
-  private calculateResizeRatio(
-    splitNode: SplitNode,
-    splitRect: SplitLayoutRect,
-    point: Point,
-  ): number {
-    if (splitRect.orientation === "horizontal") {
-      const leftRect = this.getSurroundingRect(splitNode.left.id);
-      const rightRect = this.getSurroundingRect(splitNode.right.id);
-      const leftWidth = point.x - leftRect.x;
-      const ratio = clamp(
-        leftWidth / (leftRect.width + splitRect.width + rightRect.width),
-        this.MIN_RESIZE_RATIO,
-        this.MAX_RESIZE_RATIO,
-      );
-
-      const totalWidth = leftRect.width + this._options.gap + rightRect.width;
-
-      const minLeftWidth = calculateMinSize(
-        splitNode.left,
-        this._options.gap,
-      ).width;
-      const minRatio = (minLeftWidth + this._options.gap / 2) / totalWidth;
-
-      const minRightWidth = calculateMinSize(
-        splitNode.right,
-        this._options.gap,
-      ).width;
-      const maxRatio =
-        (totalWidth - (minRightWidth + this._options.gap / 2)) / totalWidth;
-
-      return clamp(ratio, minRatio, maxRatio);
-    } else if (splitRect.orientation === "vertical") {
-      const topRect = this.getSurroundingRect(splitNode.left.id);
-      const bottomRect = this.getSurroundingRect(splitNode.right.id);
-      const topHeight = point.y - topRect.y;
-      const ratio = clamp(
-        topHeight / (topRect.height + splitRect.height + bottomRect.height),
-        this.MIN_RESIZE_RATIO,
-        this.MAX_RESIZE_RATIO,
-      );
-
-      const totalHeight =
-        topRect.height + this._options.gap + bottomRect.height;
-
-      const minTopHeight = calculateMinSize(
-        splitNode.left,
-        this._options.gap,
-      ).height;
-      const minRatio = (minTopHeight + this._options.gap / 2) / totalHeight;
-
-      const minBottomHeight = calculateMinSize(
-        splitNode.right,
-        this._options.gap,
-      ).height;
-      const maxRatio =
-        (totalHeight - (minBottomHeight + this._options.gap / 2)) / totalHeight;
-
-      return clamp(ratio, minRatio, maxRatio);
-    } else {
-      assertNever(splitRect.orientation);
-    }
+  getDraggingPanelId(): string | null {
+    return this.draggingPanelId;
   }
 }

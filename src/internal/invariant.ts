@@ -1,6 +1,12 @@
-// biome-ignore lint/suspicious/noExplicitAny: for flexibility condition can be any type
-export function invariant(condition: any, message?: string): asserts condition {
+/**
+ * Runtime assertion for impossible states.
+ * Throws an error if condition is false.
+ */
+export function invariant(
+  condition: unknown,
+  message: string
+): asserts condition {
   if (!condition) {
-    throw new Error(message ?? "Invariant failed");
+    throw new Error(`Invariant violation: ${message}`);
   }
 }

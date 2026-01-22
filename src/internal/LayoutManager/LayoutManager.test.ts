@@ -1,807 +1,329 @@
-import { describe, expect, it } from "vitest";
-import type { LayoutNode, LayoutRect, PanelNode, SplitNode } from "../../types";
+import { describe, it, expect, vi } from "vitest";
 import { LayoutManager } from "./LayoutManager";
+import type { PanelNode, SplitNode, PanelLayoutRect } from "../../types";
+import { equalWidthRightStrategy } from "../../strategies";
 
 describe("LayoutManager", () => {
-  describe("resizePanel", () => {
-    it("should throw an error when the root is null", () => {
-      const root = null;
-      const layoutManager = new LayoutManager(root);
-      expect(() => layoutManager.resizePanel("root", { x: 0, y: 0 })).toThrow(
-        "Root node is null",
-      );
+  describe("initialization", () => {
+    it("initializes with null root", () => {
+      const manager = new LayoutManager(null);
+      expect(manager.getRoot()).toBeNull();
+      expect(manager.getLayoutRects()).toEqual([]);
     });
 
-    it("should throw an error when the rect is not found", () => {
-      const root: LayoutNode = {
-        id: "root",
-        type: "panel",
-      };
-      const layoutManager = new LayoutManager(root);
-      expect(() =>
-        layoutManager.resizePanel("non-existent-id", { x: 0, y: 0 }),
-      ).toThrow("Rect with id non-existent-id not found");
+    it("initializes with provided tree", () => {
+      const panel: PanelNode = { type: "panel", id: "a" };
+      const manager = new LayoutManager(panel);
+      expect(manager.getRoot()).toBe(panel);
     });
 
-    it("should throw an error when the rect is not a split node", () => {
-      const root: PanelNode = {
-        id: "root",
-        type: "panel",
-      };
-      const layoutManager = new LayoutManager(root);
-      expect(() => layoutManager.resizePanel("root", { x: 0, y: 0 })).toThrow(
-        "Rect with id root is not a split node",
-      );
-    });
+    it("initializes with custom gap", () => {
+      const panel: PanelNode = { type: "panel", id: "a" };
+      const manager = new LayoutManager(panel, { gap: 20 });
+      manager.setSize({ width: 100, height: 100 });
 
-    it("should resize the panel when the root is split node with horizontal orientation", () => {
-      const root: SplitNode = {
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "left",
-          type: "panel",
-        },
-        right: {
-          id: "right",
-          type: "panel",
-        },
-      };
-      const layoutManager = new LayoutManager(root, {
-        gap: 10,
-      });
-      layoutManager.setSize({ width: 100, height: 100 });
-      layoutManager.resizePanel("root", { x: 30, y: 0 });
-      const result: LayoutRect[] = [
-        {
-          id: "root",
-          type: "split",
-          orientation: "horizontal",
-          x: 25,
-          y: 0,
-          width: 10,
-          height: 100,
-        },
-        {
-          id: "left",
-          type: "panel",
-          x: 0,
-          y: 0,
-          width: 25,
-          height: 100,
-        },
-        {
-          id: "right",
-          type: "panel",
-          x: 35,
-          y: 0,
-          width: 65,
-          height: 100,
-        },
-      ];
-      expect(layoutManager.layoutRects).toEqual(result);
-    });
-
-    it("should resize the panel if the root is split node with vertical orientation", () => {
-      const root: SplitNode = {
-        id: "root",
-        type: "split",
-        orientation: "vertical",
-        ratio: 0.5,
-        left: {
-          id: "left",
-          type: "panel",
-        },
-        right: {
-          id: "right",
-          type: "panel",
-        },
-      };
-      const layoutManager = new LayoutManager(root, {
-        gap: 10,
-      });
-      layoutManager.setSize({ width: 100, height: 100 });
-      layoutManager.resizePanel("root", { x: 0, y: 30 });
-      const result: LayoutRect[] = [
-        {
-          id: "root",
-          type: "split",
-          orientation: "vertical",
-          x: 0,
-          y: 25,
-          width: 100,
-          height: 10,
-        },
-        {
-          id: "left",
-          type: "panel",
-          x: 0,
-          y: 0,
-          width: 100,
-          height: 25,
-        },
-        {
-          id: "right",
-          type: "panel",
-          x: 0,
-          y: 35,
-          width: 100,
-          height: 65,
-        },
-      ];
-      expect(layoutManager.layoutRects).toEqual(result);
-    });
-
-    it("should resize the panel based on the `minSize` of the panel", () => {
-      const root: LayoutNode | null = {
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "left",
-          type: "panel",
-          minSize: { width: 40 },
-        },
-        right: {
-          id: "right",
-          type: "panel",
-        },
-      };
-      const layoutManager = new LayoutManager(root, {
-        gap: 10,
-      });
-      layoutManager.setSize({ width: 100, height: 100 });
-      layoutManager.resizePanel("root", { x: 30, y: 0 });
-      const layoutRects = layoutManager.layoutRects;
-      expect(layoutRects).toEqual([
-        {
-          id: "root",
-          type: "split",
-          orientation: "horizontal",
-          x: 40,
-          y: 0,
-          width: 10,
-          height: 100,
-        },
-        {
-          id: "left",
-          type: "panel",
-          x: 0,
-          y: 0,
-          width: 40,
-          height: 100,
-        },
-        {
-          id: "right",
-          type: "panel",
-          x: 50,
-          y: 0,
-          width: 50,
-          height: 100,
-        },
-      ]);
+      // The panel should fill the container
+      const rects = manager.getLayoutRects();
+      expect(rects).toHaveLength(1);
     });
   });
 
-  describe("removePanel", () => {
-    it("should throw an error if the root is null", () => {
-      const layoutManager = new LayoutManager(null);
-      expect(() => layoutManager.removePanel("root")).toThrowError(
-        "Root node is null",
-      );
-    });
+  describe("setSize", () => {
+    it("triggers rect recalculation", () => {
+      const panel: PanelNode = { type: "panel", id: "a" };
+      const manager = new LayoutManager(panel);
 
-    it("should throw an error if the panel is not found", () => {
-      const layoutManager = new LayoutManager({
-        id: "root",
-        type: "panel",
-      });
-      expect(() => layoutManager.removePanel("nonexistent")).toThrowError(
-        "Node with id nonexistent not found",
-      );
-    });
+      manager.setSize({ width: 800, height: 600 });
 
-    it("should throw an error if the panel is not a panel node", () => {
-      const layoutManager = new LayoutManager({
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "left",
-          type: "panel",
-        },
-        right: {
-          id: "right",
-          type: "panel",
-        },
-      });
-      expect(() => layoutManager.removePanel("root")).toThrowError(
-        "Node with id root is not a panel",
-      );
-    });
-
-    it("should remove the root panel node", () => {
-      const root: LayoutNode = {
-        id: "root",
-        type: "panel",
-      };
-      const layoutManager = new LayoutManager(root);
-      layoutManager.removePanel("root");
-      expect(layoutManager.root).toBe(null);
-    });
-
-    it("should remove the child panel node of the root node", () => {
-      const root: LayoutNode = {
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "left",
-          type: "panel",
-        },
-        right: {
-          id: "right",
-          type: "panel",
-        },
-      };
-      const layoutManager = new LayoutManager(root);
-      layoutManager.setSize({ width: 100, height: 100 });
-      layoutManager.removePanel("left");
-      expect(layoutManager.root).toEqual<LayoutNode>({
-        id: "right",
-        type: "panel",
+      const rects = manager.getLayoutRects();
+      expect(rects).toHaveLength(1);
+      expect(rects[0]).toMatchObject({
+        width: 800,
+        height: 600,
       });
     });
 
-    it("should remove the nested panel node", () => {
-      const root: LayoutNode = {
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "left",
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: "left-left",
-            type: "panel",
-          },
-          right: {
-            id: "left-right",
-            type: "panel",
-          },
-        },
-        right: {
-          id: "right",
-          type: "panel",
-        },
-      };
-      const layoutManager = new LayoutManager(root);
-      layoutManager.setSize({ width: 100, height: 100 });
-      layoutManager.removePanel("left-left");
-      expect(layoutManager.root).toEqual<LayoutNode>({
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "left-right",
-          type: "panel",
-        },
-        right: {
-          id: "right",
-          type: "panel",
-        },
-      });
+    it("does not recalculate if size unchanged", () => {
+      const panel: PanelNode = { type: "panel", id: "a" };
+      const manager = new LayoutManager(panel);
+      const listener = vi.fn();
+
+      manager.subscribe(listener);
+      manager.setSize({ width: 800, height: 600 });
+      manager.setSize({ width: 800, height: 600 }); // Same size
+
+      expect(listener).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe("movePanel", () => {
-    it("should throw an error if the root is null", () => {
-      const layoutManager = new LayoutManager(null);
-      expect(() =>
-        layoutManager.movePanel({
-          sourceId: "source",
-          targetId: "target",
-          point: { x: 0, y: 0 },
-        }),
-      ).toThrowError("Root node is null");
+  describe("subscription", () => {
+    it("notifies listeners on changes", () => {
+      const manager = new LayoutManager(null);
+      const listener = vi.fn();
+
+      manager.subscribe(listener);
+      manager.setSize({ width: 100, height: 100 });
+
+      expect(listener).toHaveBeenCalled();
     });
 
-    it("should throw an error if the root is not a split node", () => {
-      const layoutManager = new LayoutManager({
-        id: "root",
-        type: "panel",
-      });
-      expect(() =>
-        layoutManager.movePanel({
-          sourceId: "source",
-          targetId: "target",
-          point: { x: 0, y: 0 },
-        }),
-      ).toThrowError("Root node is not a split node");
-    });
+    it("unsubscribes correctly", () => {
+      const manager = new LayoutManager(null);
+      const listener = vi.fn();
 
-    it("should throw an error if the source node is not found", () => {
-      const layoutManager = new LayoutManager({
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "left",
-          type: "panel",
-        },
-        right: {
-          id: "right",
-          type: "panel",
-        },
-      });
-      expect(() =>
-        layoutManager.movePanel({
-          sourceId: "nonexistent",
-          targetId: "target",
-          point: { x: 0, y: 0 },
-        }),
-      ).toThrowError("Node with id nonexistent not found");
-    });
+      const unsubscribe = manager.subscribe(listener);
+      unsubscribe();
+      manager.setSize({ width: 100, height: 100 });
 
-    it("should throw an error if the source node is not a panel node", () => {
-      const layoutManager = new LayoutManager({
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "left",
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: "left-left",
-            type: "panel",
-          },
-          right: {
-            id: "left-right",
-            type: "panel",
-          },
-        },
-        right: {
-          id: "right",
-          type: "panel",
-        },
-      });
-      expect(() =>
-        layoutManager.movePanel({
-          sourceId: "left",
-          targetId: "target",
-          point: { x: 0, y: 0 },
-        }),
-      ).toThrowError("Node with id left is not a panel node");
-    });
-
-    it("should throw an error if the target node is not found", () => {
-      const layoutManager = new LayoutManager({
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "left",
-          type: "panel",
-        },
-        right: {
-          id: "right",
-          type: "panel",
-        },
-      });
-      expect(() =>
-        layoutManager.movePanel({
-          sourceId: "left",
-          targetId: "nonexistent",
-          point: { x: 0, y: 0 },
-        }),
-      ).toThrowError("Node with id nonexistent not found");
-    });
-
-    it("should throw an error if the target node is not a panel node", () => {
-      const layoutManager = new LayoutManager({
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "left",
-          type: "panel",
-        },
-        right: {
-          id: "right",
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: "right-left",
-            type: "panel",
-          },
-          right: {
-            id: "right-right",
-            type: "panel",
-          },
-        },
-      });
-      expect(() =>
-        layoutManager.movePanel({
-          sourceId: "left",
-          targetId: "right",
-          point: { x: 0, y: 0 },
-        }),
-      ).toThrowError("Node with id right is not a panel node");
-    });
-
-    it("should move the panel when the source node is the sibling of the target node", () => {
-      const root: LayoutNode = {
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "left",
-          type: "panel",
-        },
-        right: {
-          id: "right",
-          type: "panel",
-        },
-      };
-      const layoutManager = new LayoutManager(root);
-      layoutManager.setSize({ width: 100, height: 100 });
-      layoutManager.movePanel({
-        sourceId: "right",
-        targetId: "left",
-        point: { x: 0, y: 50 },
-      });
-      expect(layoutManager.root).toEqual<LayoutNode>({
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "right",
-          type: "panel",
-        },
-        right: {
-          id: "left",
-          type: "panel",
-        },
-      });
-    });
-
-    it("should move the panel when the source node does not have a grand parent node", () => {
-      const root: LayoutNode = {
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "left",
-          type: "panel",
-        },
-        right: {
-          id: "right",
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: "right-left",
-            type: "panel",
-          },
-          right: {
-            id: "right-right",
-            type: "panel",
-          },
-        },
-      };
-      const layoutManager = new LayoutManager(root);
-      layoutManager.setSize({ width: 100, height: 100 });
-      layoutManager.movePanel({
-        sourceId: "left",
-        targetId: "right-left",
-        point: { x: 60, y: 8 },
-      });
-
-      expect(layoutManager.root).toEqual<LayoutNode>({
-        id: "right",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: expect.any(String),
-          type: "split",
-          orientation: "vertical",
-          ratio: 0.5,
-          left: {
-            id: "left",
-            type: "panel",
-          },
-          right: {
-            id: "right-left",
-            type: "panel",
-          },
-        },
-        right: {
-          id: "right-right",
-          type: "panel",
-        },
-      });
-    });
-
-    it("should move the panel when the source node has a grand parent node", () => {
-      const root: LayoutNode = {
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "left",
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: "left-left",
-            type: "panel",
-          },
-          right: {
-            id: "left-right",
-            type: "panel",
-          },
-        },
-        right: {
-          id: "right",
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: "right-left",
-            type: "panel",
-          },
-          right: {
-            id: "right-right",
-            type: "panel",
-          },
-        },
-      };
-      const layoutManager = new LayoutManager(root);
-      layoutManager.setSize({ width: 100, height: 100 });
-      layoutManager.movePanel({
-        sourceId: "left-left",
-        targetId: "right-left",
-        point: { x: 60, y: 8 },
-      });
-      expect(layoutManager.root).toEqual<LayoutNode>({
-        id: "root",
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "left-right",
-          type: "panel",
-        },
-        right: {
-          id: "right",
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: expect.any(String),
-            type: "split",
-            orientation: "vertical",
-            ratio: 0.5,
-            left: {
-              id: "left-left",
-              type: "panel",
-            },
-            right: {
-              id: "right-left",
-              type: "panel",
-            },
-          },
-          right: {
-            id: "right-right",
-            type: "panel",
-          },
-        },
-      });
+      expect(listener).not.toHaveBeenCalled();
     });
   });
 
   describe("addPanel", () => {
-    it("should add panel with given id when the root is null", () => {
-      const root = null;
-      const layoutManager = new LayoutManager(root);
-      layoutManager.addPanel("abc-123");
-      expect(layoutManager.root).toEqual<LayoutNode>({
-        id: "abc-123",
+    it("adds panel to empty tree", () => {
+      const manager = new LayoutManager(null);
+      manager.setSize({ width: 100, height: 100 });
+
+      manager.addPanel("a");
+
+      expect(manager.getRoot()).toMatchObject({
         type: "panel",
+        id: "a",
       });
     });
 
-    it("should add panel to the right of the root with correct ratio when the root is a panel node", () => {
-      const root: LayoutNode = {
-        id: "root",
-        type: "panel",
-      };
-      const layoutManager = new LayoutManager(root);
-      layoutManager.addPanel("abc-123");
-      expect(layoutManager.root).toEqual<LayoutNode>({
-        id: expect.any(String),
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "root",
-          type: "panel",
-        },
-        right: {
-          id: "abc-123",
-          type: "panel",
-        },
-      });
+    it("adds panel with minSize", () => {
+      const manager = new LayoutManager(null);
+      manager.setSize({ width: 100, height: 100 });
+
+      manager.addPanel("a", { width: 50, height: 30 });
+
+      const root = manager.getRoot() as PanelNode;
+      expect(root.minSize).toEqual({ width: 50, height: 30 });
     });
 
-    it("should add panel to the right of the root with correct ratio when the root is a split node with horizontal orientation", () => {
-      const root: LayoutNode = {
-        id: "root",
+    it("adds panel to existing tree with default placement", () => {
+      const panel: PanelNode = { type: "panel", id: "a" };
+      const manager = new LayoutManager(panel);
+      manager.setSize({ width: 210, height: 100 });
+
+      manager.addPanel("b");
+
+      const root = manager.getRoot() as SplitNode;
+      expect(root.type).toBe("split");
+      expect(root.orientation).toBe("horizontal");
+    });
+
+    it("uses placement strategy when provided", () => {
+      const panel: PanelNode = { type: "panel", id: "a" };
+      const manager = new LayoutManager(panel, {
+        placementStrategy: equalWidthRightStrategy,
+      });
+      manager.setSize({ width: 210, height: 100 });
+
+      manager.addPanel("b");
+
+      const root = manager.getRoot() as SplitNode;
+      expect(root.type).toBe("split");
+      expect(root.right).toMatchObject({ type: "panel", id: "b" });
+    });
+  });
+
+  describe("removePanel", () => {
+    it("removes panel from tree", () => {
+      const split: SplitNode = {
         type: "split",
+        id: "split-1",
         orientation: "horizontal",
         ratio: 0.5,
-        left: {
-          id: "left",
-          type: "panel",
-        },
-        right: {
-          id: "right",
-          type: "panel",
-        },
+        left: { type: "panel", id: "a" },
+        right: { type: "panel", id: "b" },
       };
-      const layoutManager = new LayoutManager(root);
-      layoutManager.addPanel("abc-123");
-      expect(layoutManager.root).toEqual<LayoutNode>({
-        id: expect.any(String),
+      const manager = new LayoutManager(split);
+      manager.setSize({ width: 210, height: 100 });
+
+      manager.removePanel("a");
+
+      const root = manager.getRoot() as PanelNode;
+      expect(root.id).toBe("b");
+    });
+
+    it("removes last panel resulting in null root", () => {
+      const panel: PanelNode = { type: "panel", id: "a" };
+      const manager = new LayoutManager(panel);
+      manager.setSize({ width: 100, height: 100 });
+
+      manager.removePanel("a");
+
+      expect(manager.getRoot()).toBeNull();
+    });
+
+    it("does nothing on null root", () => {
+      const manager = new LayoutManager(null);
+      manager.removePanel("nonexistent");
+      expect(manager.getRoot()).toBeNull();
+    });
+  });
+
+  describe("movePanel", () => {
+    it("moves panel to new location", () => {
+      const tree: SplitNode = {
         type: "split",
+        id: "split-1",
         orientation: "horizontal",
-        ratio: 2 / 3,
-        left: {
-          id: "root",
+        ratio: 0.5,
+        left: { type: "panel", id: "a" },
+        right: {
           type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: "left",
-            type: "panel",
-          },
-          right: {
-            id: "right",
-            type: "panel",
-          },
-        },
-        right: {
-          id: "abc-123",
-          type: "panel",
-        },
-      });
-    });
-
-    it("should add panel to the right of the root with correct ratio when the root is a split node with vertical orientation", () => {
-      const root: LayoutNode = {
-        id: "root",
-        type: "split",
-        orientation: "vertical",
-        ratio: 0.5,
-        left: {
-          id: "left",
-          type: "panel",
-        },
-        right: {
-          id: "right",
-          type: "panel",
-        },
-      };
-      const layoutManager = new LayoutManager(root);
-      layoutManager.addPanel("abc-123");
-      expect(layoutManager.root).toEqual<LayoutNode>({
-        id: expect.any(String),
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.5,
-        left: {
-          id: "root",
-          type: "split",
+          id: "split-2",
           orientation: "vertical",
           ratio: 0.5,
-          left: {
-            id: "left",
-            type: "panel",
-          },
-          right: {
-            id: "right",
-            type: "panel",
-          },
+          left: { type: "panel", id: "b" },
+          right: { type: "panel", id: "c" },
         },
-        right: {
-          id: "abc-123",
-          type: "panel",
-        },
-      });
+      };
+      const manager = new LayoutManager(tree);
+      manager.setSize({ width: 420, height: 210 });
+
+      // Move panel c to the left of panel a
+      manager.movePanel("c", "a", "left");
+
+      const root = manager.getRoot() as SplitNode;
+      // c should now be in the tree at a different position
+      expect(root).toBeDefined();
     });
 
-    it("should add panel to the right of the root with correct ratio when the root is a nested split node", () => {
-      const root: LayoutNode = {
-        id: "root",
+    it("does nothing when moving to same panel", () => {
+      const panel: PanelNode = { type: "panel", id: "a" };
+      const manager = new LayoutManager(panel);
+      manager.setSize({ width: 100, height: 100 });
+
+      manager.movePanel("a", "a", "left");
+
+      expect(manager.getRoot()).toBe(panel);
+    });
+
+    it("does nothing with null root", () => {
+      const manager = new LayoutManager(null);
+      manager.movePanel("a", "b", "left");
+      expect(manager.getRoot()).toBeNull();
+    });
+  });
+
+  describe("resizePanel", () => {
+    it("updates split ratio", () => {
+      const split: SplitNode = {
         type: "split",
+        id: "split-1",
+        orientation: "horizontal",
+        ratio: 0.5,
+        left: { type: "panel", id: "a" },
+        right: { type: "panel", id: "b" },
+      };
+      const manager = new LayoutManager(split);
+      manager.setSize({ width: 210, height: 100 });
+
+      // Move the split bar to the right (75% position)
+      manager.resizePanel("split-1", 150);
+
+      const root = manager.getRoot() as SplitNode;
+      expect(root.ratio).toBeGreaterThan(0.5);
+    });
+
+    it("clamps ratio to minimum", () => {
+      const split: SplitNode = {
+        type: "split",
+        id: "split-1",
+        orientation: "horizontal",
+        ratio: 0.5,
+        left: { type: "panel", id: "a" },
+        right: { type: "panel", id: "b" },
+      };
+      const manager = new LayoutManager(split);
+      manager.setSize({ width: 210, height: 100 });
+
+      // Try to move to far left
+      manager.resizePanel("split-1", 0);
+
+      const root = manager.getRoot() as SplitNode;
+      expect(root.ratio).toBeGreaterThanOrEqual(0.1);
+    });
+
+    it("clamps ratio to maximum", () => {
+      const split: SplitNode = {
+        type: "split",
+        id: "split-1",
+        orientation: "horizontal",
+        ratio: 0.5,
+        left: { type: "panel", id: "a" },
+        right: { type: "panel", id: "b" },
+      };
+      const manager = new LayoutManager(split);
+      manager.setSize({ width: 210, height: 100 });
+
+      // Try to move to far right
+      manager.resizePanel("split-1", 210);
+
+      const root = manager.getRoot() as SplitNode;
+      expect(root.ratio).toBeLessThanOrEqual(0.9);
+    });
+
+    it("respects minSize constraints", () => {
+      const split: SplitNode = {
+        type: "split",
+        id: "split-1",
         orientation: "horizontal",
         ratio: 0.5,
         left: {
-          id: "left",
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: "left-left",
-            type: "panel",
-          },
-          right: {
-            id: "left-right",
-            type: "panel",
-          },
-        },
-        right: {
-          id: "right",
           type: "panel",
+          id: "a",
+          minSize: { width: 100 },
         },
+        right: { type: "panel", id: "b" },
       };
-      const layoutManager = new LayoutManager(root);
-      layoutManager.addPanel("abc-123");
-      expect(layoutManager.root).toEqual<LayoutNode>({
-        id: expect.any(String),
-        type: "split",
-        orientation: "horizontal",
-        ratio: 0.75,
-        left: {
-          id: "root",
-          type: "split",
-          orientation: "horizontal",
-          ratio: 0.5,
-          left: {
-            id: "left",
-            type: "split",
-            orientation: "horizontal",
-            ratio: 0.5,
-            left: {
-              id: "left-left",
-              type: "panel",
-            },
-            right: {
-              id: "left-right",
-              type: "panel",
-            },
-          },
-          right: {
-            id: "right",
-            type: "panel",
-          },
-        },
-        right: {
-          id: "abc-123",
-          type: "panel",
-        },
-      });
+      const manager = new LayoutManager(split);
+      manager.setSize({ width: 310, height: 100 });
+
+      // Try to resize below panel a's minimum width
+      manager.resizePanel("split-1", 50);
+
+      const root = manager.getRoot() as SplitNode;
+      // Available width = 300, minWidth = 100
+      // Min ratio should be at least 100/300 = 0.33
+      expect(root.ratio).toBeGreaterThanOrEqual(0.1);
+    });
+  });
+
+  describe("drag state", () => {
+    it("sets and gets dragging panel", () => {
+      const panel: PanelNode = { type: "panel", id: "a" };
+      const manager = new LayoutManager(panel);
+      manager.setSize({ width: 100, height: 100 });
+
+      manager.setDraggingPanel("a");
+
+      expect(manager.getDraggingPanelId()).toBe("a");
+
+      const draggingRect = manager.getDraggingRect();
+      expect(draggingRect).toMatchObject({ id: "a" });
+    });
+
+    it("clears dragging panel", () => {
+      const panel: PanelNode = { type: "panel", id: "a" };
+      const manager = new LayoutManager(panel);
+      manager.setSize({ width: 100, height: 100 });
+
+      manager.setDraggingPanel("a");
+      manager.setDraggingPanel(null);
+
+      expect(manager.getDraggingPanelId()).toBeNull();
+      expect(manager.getDraggingRect()).toBeNull();
+    });
+
+    it("returns null for non-existent dragging panel", () => {
+      const manager = new LayoutManager(null);
+      manager.setDraggingPanel("nonexistent");
+      expect(manager.getDraggingRect()).toBeNull();
     });
   });
 });

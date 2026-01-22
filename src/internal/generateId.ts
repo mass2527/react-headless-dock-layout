@@ -1,6 +1,9 @@
+/**
+ * Generates a unique ID for split nodes.
+ * Uses a counter + random suffix for uniqueness.
+ */
+let counter = 0;
+
 export function generateId(): string {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return Date.now().toString(36);
+  return `split-${++counter}-${Math.random().toString(36).substring(2, 9)}`;
 }

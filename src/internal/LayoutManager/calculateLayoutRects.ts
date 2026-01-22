@@ -1,88 +1,101 @@
-import type { LayoutManagerOptions, LayoutNode, LayoutRect } from "../../types";
-import { assertNever } from "../assertNever";
-import type { Rect, Size } from "./types";
+import type {
+  LayoutNode,
+  LayoutRect,
+  ContainerSize,
+} from "../../types";
 
+interface CalculateOptions {
+  gap: number;
+}
+
+/**
+ * Calculates absolute rectangles for all nodes in the layout tree.
+ *
+ * @param root - The layout tree root
+ * @param size - Container dimensions
+ * @param options - Configuration (gap size)
+ * @returns Array of rectangles for panels and split bars
+ */
 export function calculateLayoutRects(
   root: LayoutNode | null,
-  options: Required<Pick<LayoutManagerOptions, "gap">> & { size: Size },
+  size: ContainerSize,
+  options: CalculateOptions
 ): LayoutRect[] {
-  if (root === null) {
-    return [];
-  }
+  if (!root) return [];
 
   const rects: LayoutRect[] = [];
+  const { gap } = options;
 
-  const traverse = (node: LayoutNode, rect: Rect) => {
-    if (node.type === "split") {
-      if (node.orientation === "horizontal") {
-        rects.push({
-          id: node.id,
-          type: "split",
-          orientation: node.orientation,
-          x: Math.round(rect.x + rect.width * node.ratio - options.gap / 2),
-          y: Math.round(rect.y),
-          width: Math.round(options.gap),
-          height: Math.round(rect.height),
-        });
-
-        traverse(node.left, {
-          x: rect.x,
-          y: rect.y,
-          width: rect.width * node.ratio - options.gap / 2,
-          height: rect.height,
-        });
-        traverse(node.right, {
-          x: rect.x + rect.width * node.ratio + options.gap / 2,
-          y: rect.y,
-          width: rect.width * (1 - node.ratio) - options.gap / 2,
-          height: rect.height,
-        });
-      } else if (node.orientation === "vertical") {
-        rects.push({
-          id: node.id,
-          type: "split",
-          orientation: node.orientation,
-          x: Math.round(rect.x),
-          y: Math.round(rect.y + rect.height * node.ratio - options.gap / 2),
-          width: Math.round(rect.width),
-          height: Math.round(options.gap),
-        });
-
-        traverse(node.left, {
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height * node.ratio - options.gap / 2,
-        });
-        traverse(node.right, {
-          x: rect.x,
-          y: rect.y + rect.height * node.ratio + options.gap / 2,
-          width: rect.width,
-          height: rect.height * (1 - node.ratio) - options.gap / 2,
-        });
-      } else {
-        assertNever(node.orientation);
-      }
-    } else if (node.type === "panel") {
+  function calculate(
+    node: LayoutNode,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ): void {
+    if (node.type === "panel") {
       rects.push({
-        id: node.id,
         type: "panel",
-        x: Math.round(rect.x),
-        y: Math.round(rect.y),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height),
+        id: node.id,
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.round(width),
+        height: Math.round(height),
       });
-    } else {
-      assertNever(node);
+      return;
     }
-  };
 
-  traverse(root, {
-    x: 0,
-    y: 0,
-    width: options.size.width,
-    height: options.size.height,
-  });
+    // Split node - calculate split bar and child rects
+    const { orientation, ratio, left, right } = node;
+
+    if (orientation === "horizontal") {
+      // Split horizontally: [left | bar | right]
+      const leftWidth = (width - gap) * ratio;
+      const rightWidth = width - gap - leftWidth;
+      const barX = x + leftWidth;
+
+      // Split bar rect
+      rects.push({
+        type: "split",
+        id: node.id,
+        orientation: "horizontal",
+        x: Math.round(barX),
+        y: Math.round(y),
+        width: gap,
+        height: Math.round(height),
+      });
+
+      // Left child
+      calculate(left, x, y, leftWidth, height);
+
+      // Right child
+      calculate(right, barX + gap, y, rightWidth, height);
+    } else {
+      // Split vertically: [top / bar / bottom]
+      const topHeight = (height - gap) * ratio;
+      const bottomHeight = height - gap - topHeight;
+      const barY = y + topHeight;
+
+      // Split bar rect
+      rects.push({
+        type: "split",
+        id: node.id,
+        orientation: "vertical",
+        x: Math.round(x),
+        y: Math.round(barY),
+        width: Math.round(width),
+        height: gap,
+      });
+
+      // Top child (left in tree)
+      calculate(left, x, y, width, topHeight);
+
+      // Bottom child (right in tree)
+      calculate(right, x, barY + gap, width, bottomHeight);
+    }
+  }
+
+  calculate(root, 0, 0, size.width, size.height);
 
   return rects;
 }

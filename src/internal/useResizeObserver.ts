@@ -1,31 +1,46 @@
-import { useEffect, useRef } from "react";
-import { useStableCallback } from "./useStableCallback";
+import { useCallback, useRef } from "react";
 
-export function useResizeObserver<T extends HTMLElement>(
-  onResize: (entry: ResizeObserverEntry) => void,
-) {
-  const ref = useRef<T>(null);
-  const stableOnResize = useStableCallback(onResize);
+interface Size {
+  width: number;
+  height: number;
+}
 
-  useEffect(() => {
-    const element = ref.current;
+/**
+ * Hook that observes an element's size and calls a callback on changes.
+ * Returns a ref callback to attach to the target element.
+ */
+export function useResizeObserver(
+  onResize: (size: Size) => void
+): (element: HTMLElement | null) => void {
+  const observerRef = useRef<ResizeObserver | null>(null);
 
-    if (element === null) {
-      throw new Error("Ref is not attached to an element");
-    }
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        stableOnResize(entry);
+  const refCallback = useCallback(
+    (element: HTMLElement | null) => {
+      // Cleanup previous observer
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
       }
-    });
 
-    resizeObserver.observe(element);
+      if (!element) return;
 
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [stableOnResize]);
+      // Create new observer
+      observerRef.current = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (entry) {
+          const { width, height } = entry.contentRect;
+          onResize({ width, height });
+        }
+      });
 
-  return ref;
+      observerRef.current.observe(element);
+
+      // Immediate size report
+      const rect = element.getBoundingClientRect();
+      onResize({ width: rect.width, height: rect.height });
+    },
+    [onResize]
+  );
+
+  return refCallback;
 }
