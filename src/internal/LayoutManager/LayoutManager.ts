@@ -12,7 +12,6 @@ import { generateId } from "../generateId";
 import { invariant } from "../invariant";
 
 import { calculateLayoutRects } from "./calculateLayoutRects";
-import { calculateMinSize } from "./calculateMinSize";
 import { findClosestDirection } from "./findClosestDirection";
 import { LayoutTree } from "./LayoutTree";
 import type { Direction, Point, Rect, Size } from "./types";
@@ -25,6 +24,8 @@ export class LayoutManager {
   private _options: Required<LayoutManagerOptions> & { size: Size };
   private _listeners = new Set<() => void>();
   private _layoutRects: LayoutRect[] = [];
+  private _rectMap = new Map<string, LayoutRect>();
+  private _minSizeCache = new Map<string, Size>();
 
   constructor(root: LayoutNode | null, options?: LayoutManagerOptions) {
     this._tree = new LayoutTree(root);
@@ -35,6 +36,8 @@ export class LayoutManager {
     };
 
     this._layoutRects = calculateLayoutRects(root, this._options);
+    this.buildRectMap();
+    this.buildMinSizeCache();
   }
 
   get root() {
@@ -320,7 +323,54 @@ export class LayoutManager {
 
   private syncLayoutRects() {
     this._layoutRects = calculateLayoutRects(this._tree.root, this._options);
+    this.buildRectMap();
+    this.buildMinSizeCache();
     this.emit();
+  }
+
+  private buildRectMap() {
+    this._rectMap.clear();
+    for (const rect of this._layoutRects) {
+      this._rectMap.set(rect.id, rect);
+    }
+  }
+
+  private buildMinSizeCache() {
+    this._minSizeCache.clear();
+    if (this._tree.root !== null) {
+      this.cacheMinSizeRecursive(this._tree.root);
+    }
+  }
+
+  private cacheMinSizeRecursive(node: LayoutNode): Size {
+    if (node.type === "panel") {
+      const size = {
+        width: node.minSize?.width ?? 0,
+        height: node.minSize?.height ?? 0,
+      };
+      this._minSizeCache.set(node.id, size);
+      return size;
+    } else if (node.type === "split") {
+      const leftSize = this.cacheMinSizeRecursive(node.left);
+      const rightSize = this.cacheMinSizeRecursive(node.right);
+
+      let size: Size;
+      if (node.orientation === "horizontal") {
+        size = {
+          width: leftSize.width + this._options.gap + rightSize.width,
+          height: Math.max(leftSize.height, rightSize.height),
+        };
+      } else {
+        size = {
+          width: Math.max(leftSize.width, rightSize.width),
+          height: leftSize.height + this._options.gap + rightSize.height,
+        };
+      }
+      this._minSizeCache.set(node.id, size);
+      return size;
+    } else {
+      assertNever(node);
+    }
   }
 
   private createSplitNode({
@@ -382,7 +432,13 @@ export class LayoutManager {
   }
 
   private findRect(id: string) {
-    return this._layoutRects.find((rect) => rect.id === id) ?? null;
+    return this._rectMap.get(id) ?? null;
+  }
+
+  private getCachedMinSize(id: string): Size {
+    const cached = this._minSizeCache.get(id);
+    invariant(cached !== undefined, "Min size should be cached");
+    return cached;
   }
 
   private getSurroundingRect(id: string): Rect {
@@ -443,16 +499,10 @@ export class LayoutManager {
 
       const totalWidth = leftRect.width + this._options.gap + rightRect.width;
 
-      const minLeftWidth = calculateMinSize(
-        splitNode.left,
-        this._options.gap,
-      ).width;
+      const minLeftWidth = this.getCachedMinSize(splitNode.left.id).width;
       const minRatio = (minLeftWidth + this._options.gap / 2) / totalWidth;
 
-      const minRightWidth = calculateMinSize(
-        splitNode.right,
-        this._options.gap,
-      ).width;
+      const minRightWidth = this.getCachedMinSize(splitNode.right.id).width;
       const maxRatio =
         (totalWidth - (minRightWidth + this._options.gap / 2)) / totalWidth;
 
@@ -470,16 +520,10 @@ export class LayoutManager {
       const totalHeight =
         topRect.height + this._options.gap + bottomRect.height;
 
-      const minTopHeight = calculateMinSize(
-        splitNode.left,
-        this._options.gap,
-      ).height;
+      const minTopHeight = this.getCachedMinSize(splitNode.left.id).height;
       const minRatio = (minTopHeight + this._options.gap / 2) / totalHeight;
 
-      const minBottomHeight = calculateMinSize(
-        splitNode.right,
-        this._options.gap,
-      ).height;
+      const minBottomHeight = this.getCachedMinSize(splitNode.right.id).height;
       const maxRatio =
         (totalHeight - (minBottomHeight + this._options.gap / 2)) / totalHeight;
 
