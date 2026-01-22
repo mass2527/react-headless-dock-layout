@@ -184,6 +184,48 @@ describe("LayoutManager", () => {
         },
       ]);
     });
+
+    it("should not produce NaN ratio when container has zero size (horizontal)", () => {
+      const root: SplitNode = {
+        id: "root",
+        type: "split",
+        orientation: "horizontal",
+        ratio: 0.5,
+        left: {
+          id: "left",
+          type: "panel",
+        },
+        right: {
+          id: "right",
+          type: "panel",
+        },
+      };
+      const layoutManager = new LayoutManager(root, { gap: 0 });
+      layoutManager.setSize({ width: 0, height: 0 });
+      layoutManager.resizePanel("root", { x: 10, y: 0 });
+      expect(Number.isNaN((layoutManager.root as SplitNode).ratio)).toBe(false);
+    });
+
+    it("should not produce NaN ratio when container has zero size (vertical)", () => {
+      const root: SplitNode = {
+        id: "root",
+        type: "split",
+        orientation: "vertical",
+        ratio: 0.5,
+        left: {
+          id: "top",
+          type: "panel",
+        },
+        right: {
+          id: "bottom",
+          type: "panel",
+        },
+      };
+      const layoutManager = new LayoutManager(root, { gap: 0 });
+      layoutManager.setSize({ width: 0, height: 0 });
+      layoutManager.resizePanel("root", { x: 0, y: 10 });
+      expect(Number.isNaN((layoutManager.root as SplitNode).ratio)).toBe(false);
+    });
   });
 
   describe("removePanel", () => {

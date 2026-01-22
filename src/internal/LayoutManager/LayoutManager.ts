@@ -443,6 +443,11 @@ export class LayoutManager {
 
       const totalWidth = leftRect.width + this._options.gap + rightRect.width;
 
+      // Guard against division by zero when container is very small
+      if (totalWidth <= 0) {
+        return ratio;
+      }
+
       const minLeftWidth = calculateMinSize(
         splitNode.left,
         this._options.gap,
@@ -469,6 +474,11 @@ export class LayoutManager {
 
       const totalHeight =
         topRect.height + this._options.gap + bottomRect.height;
+
+      // Guard against division by zero when container is very small
+      if (totalHeight <= 0) {
+        return ratio;
+      }
 
       const minTopHeight = calculateMinSize(
         splitNode.left,
