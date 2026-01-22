@@ -1,4 +1,4 @@
-import { assertNever } from "./internal/assertNever";
+import { assertNever } from "./internal/errors";
 import type { Direction } from "./internal/LayoutManager/types";
 import type { LayoutNode } from "./types";
 

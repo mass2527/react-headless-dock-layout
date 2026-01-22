@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LayoutRect, PanelNode, SplitNode } from "../../types";
-import { calculateLayoutRects } from "./calculateLayoutRects";
+import { calculateLayoutRects } from "./calculations";
 
 describe("calculateLayoutRects", () => {
   it("should return an empty array when the root is null", () => {

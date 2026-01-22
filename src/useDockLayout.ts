@@ -4,11 +4,10 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { assertNever } from "./internal/assertNever";
+import { assertNever } from "./internal/errors";
+import { useCursor, useResizeObserver } from "./internal/hooks";
 import { LayoutManager } from "./internal/LayoutManager/LayoutManager";
 import type { Direction } from "./internal/LayoutManager/types";
-import { useCursor } from "./internal/useCursor";
-import { useResizeObserver } from "./internal/useResizeObserver";
 import type {
   LayoutManagerOptions,
   LayoutNode,

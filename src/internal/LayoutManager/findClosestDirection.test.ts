@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findClosestDirection } from "./findClosestDirection";
+import { findClosestDirection } from "./calculations";
 
 describe("findClosestDirection", () => {
   it("should return top when the point is at the top edge", () => {

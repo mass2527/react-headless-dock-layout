@@ -1,7 +1,29 @@
-import type { LayoutManagerOptions, LayoutNode, LayoutRect } from "../../types";
-import { assertNever } from "../assertNever";
-import type { Rect, Size } from "./types";
+import type { LayoutManagerOptions, LayoutNode, LayoutRect } from "../../../types";
+import { assertNever } from "../../errors";
+import type { Rect, Size } from "../types";
 
+/**
+ * Converts a layout tree into an array of absolute-positioned rectangles.
+ *
+ * This function traverses the binary tree structure and calculates the pixel
+ * coordinates for each node based on the container size and split ratios.
+ *
+ * **Algorithm:**
+ * 1. Start with the full container as the available rect
+ * 2. For each split node:
+ *    - Calculate the split bar position based on the ratio
+ *    - Recursively process left/right children with their allocated portions
+ * 3. For each panel node:
+ *    - Output its final pixel coordinates
+ *
+ * **Coordinate System:**
+ * - Origin (0,0) is at the top-left of the container
+ * - Split bars are centered on the split line with width/height equal to `gap`
+ *
+ * @param root - The root of the layout tree, or null for empty layout.
+ * @param options - Configuration containing gap size and container dimensions.
+ * @returns Array of rectangles for all panels and split bars.
+ */
 export function calculateLayoutRects(
   root: LayoutNode | null,
   options: Required<Pick<LayoutManagerOptions, "gap">> & { size: Size },
@@ -15,6 +37,7 @@ export function calculateLayoutRects(
   const traverse = (node: LayoutNode, rect: Rect) => {
     if (node.type === "split") {
       if (node.orientation === "horizontal") {
+        // Horizontal split: left | right (split bar is vertical)
         rects.push({
           id: node.id,
           type: "split",
@@ -38,6 +61,7 @@ export function calculateLayoutRects(
           height: rect.height,
         });
       } else if (node.orientation === "vertical") {
+        // Vertical split: top / bottom (split bar is horizontal)
         rects.push({
           id: node.id,
           type: "split",

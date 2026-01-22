@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PanelNode, SplitNode } from "../../types";
-import { calculateMinSize } from "./calculateMinSize";
+import { calculateMinSize } from "./calculations";
 
 describe("calculateMinSize", () => {
   it("should return the min size of a panel node", () => {

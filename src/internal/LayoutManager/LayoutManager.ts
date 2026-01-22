@@ -6,17 +6,33 @@ import type {
   SplitLayoutRect,
   SplitNode,
 } from "../../types";
-import { assertNever } from "../assertNever";
-import { clamp } from "../clamp";
-import { generateId } from "../generateId";
-import { invariant } from "../invariant";
+import { assertNever } from "../errors";
+import { clamp, generateId } from "../utils";
+import { invariant } from "../errors";
 
-import { calculateLayoutRects } from "./calculateLayoutRects";
-import { calculateMinSize } from "./calculateMinSize";
-import { findClosestDirection } from "./findClosestDirection";
+import {
+  calculateLayoutRects,
+  calculateMinSize,
+  findClosestDirection,
+} from "./calculations";
 import { LayoutTree } from "./LayoutTree";
 import type { Direction, Point, Rect, Size } from "./types";
 
+/**
+ * Core class that manages layout state and operations.
+ *
+ * The LayoutManager maintains a binary tree structure where:
+ * - PanelNodes are leaf nodes representing content areas
+ * - SplitNodes are internal nodes that divide space between children
+ *
+ * It provides methods for:
+ * - Adding and removing panels
+ * - Moving panels via drag-and-drop
+ * - Resizing split bars
+ * - Computing absolute pixel coordinates for rendering
+ *
+ * Uses a subscription model for React integration via `useSyncExternalStore`.
+ */
 export class LayoutManager {
   private readonly MIN_RESIZE_RATIO = 0.1;
   private readonly MAX_RESIZE_RATIO = 0.9;
@@ -50,6 +66,12 @@ export class LayoutManager {
     return this._layoutRects;
   }
 
+  /**
+   * Subscribe to layout changes.
+   *
+   * @param listener - Callback invoked when layout changes.
+   * @returns Cleanup function to unsubscribe.
+   */
   subscribe = (listener: () => void) => {
     this._listeners.add(listener);
 
@@ -58,11 +80,25 @@ export class LayoutManager {
     };
   };
 
+  /**
+   * Update the container size and recalculate all rect positions.
+   *
+   * @param size - The new container dimensions.
+   */
   setSize(size: Size) {
     this._options.size = size;
     this.syncLayoutRects();
   }
 
+  /**
+   * Remove a panel from the layout.
+   *
+   * When a panel is removed, its sibling takes over the parent's space.
+   * If it's the only panel, the layout becomes empty.
+   *
+   * @param id - The ID of the panel to remove.
+   * @throws {Error} If the panel is not found or is not a panel node.
+   */
   removePanel(id: string) {
     if (this._tree.root === null) {
       throw new Error("Root node is null");
@@ -107,6 +143,14 @@ export class LayoutManager {
     this.syncLayoutRects();
   }
 
+  /**
+   * Move a panel to a new location relative to another panel.
+   *
+   * @param params.sourceId - ID of the panel being moved.
+   * @param params.targetId - ID of the panel to drop onto.
+   * @param params.point - The drop position to determine direction.
+   * @throws {Error} If either panel is not found.
+   */
   movePanel({
     sourceId,
     targetId,
@@ -154,6 +198,7 @@ export class LayoutManager {
     invariant(targetRect.type === "panel");
     const direction = findClosestDirection(targetRect, point);
 
+    // Special case: source and target are siblings
     if (sourceNodeSibling.id === targetId) {
       if (direction === "left") {
         sourceNodeParent.orientation = "horizontal";
@@ -178,6 +223,7 @@ export class LayoutManager {
       return;
     }
 
+    // Remove source from its current location
     const sourceNodeGrandParent = this._tree.findParentNode(
       sourceNodeParent.id,
     );
@@ -191,6 +237,7 @@ export class LayoutManager {
       });
     }
 
+    // Insert source at target location
     const targetNodeParent = this._tree.findParentNode(targetId);
     invariant(targetNodeParent !== null);
     const splitNode = this.createSplitNode({
@@ -208,6 +255,13 @@ export class LayoutManager {
     this.syncLayoutRects();
   }
 
+  /**
+   * Resize a split bar to a new position.
+   *
+   * @param id - ID of the split node to resize.
+   * @param point - The new position for the split bar.
+   * @throws {Error} If the split is not found.
+   */
   resizePanel(id: string, point: Point) {
     if (this._tree.root === null) {
       throw new Error("Root node is null");
@@ -232,6 +286,13 @@ export class LayoutManager {
     this.syncLayoutRects();
   }
 
+  /**
+   * Add a new panel to the layout.
+   *
+   * Uses the configured placement strategy to determine where to place the panel.
+   *
+   * @param id - Unique identifier for the new panel.
+   */
   addPanel(id: string) {
     if (this._tree.root === null) {
       this._tree.root = {
@@ -289,6 +350,14 @@ export class LayoutManager {
     this.syncLayoutRects();
   }
 
+  /**
+   * Calculate the drop target direction for a drag operation.
+   *
+   * @param params.draggedPanelId - ID of the panel being dragged.
+   * @param params.targetPanelId - ID of the panel being hovered over.
+   * @param params.point - Current cursor position.
+   * @returns The target panel ID and direction for the drop indicator.
+   */
   calculateDropTarget({
     draggedPanelId,
     targetPanelId,
@@ -426,6 +495,11 @@ export class LayoutManager {
     }
   }
 
+  /**
+   * Calculate the new ratio for a split based on drag position.
+   *
+   * Respects minimum size constraints of child panels.
+   */
   private calculateResizeRatio(
     splitNode: SplitNode,
     splitRect: SplitLayoutRect,
