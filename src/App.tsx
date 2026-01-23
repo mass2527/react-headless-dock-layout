@@ -102,7 +102,7 @@ export function App() {
               </div>
             );
           } else {
-            assertNever(rect);
+            return assertNever(rect);
           }
         })}
       </div>
