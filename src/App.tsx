@@ -13,7 +13,6 @@ export function App() {
     getDropIndicatorProps,
     getDragHandleProps,
   } = useDockLayout<HTMLDivElement>(() => {
-    console.info("working");
     const root = localStorage.getItem("layout");
     if (root === null) {
       return null;

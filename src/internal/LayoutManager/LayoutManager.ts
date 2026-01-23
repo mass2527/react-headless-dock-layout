@@ -16,6 +16,7 @@ import { calculateMinSize } from "./calculateMinSize";
 import { findClosestDirection } from "./findClosestDirection";
 import { LayoutTree } from "./LayoutTree";
 import type { Direction, Point, Rect, Size } from "./types";
+import { assertValidLayoutTree } from "./validateLayoutTree";
 
 export class LayoutManager {
   private readonly MIN_RESIZE_RATIO = 0.1;
@@ -27,6 +28,9 @@ export class LayoutManager {
   private _layoutRects: LayoutRect[] = [];
 
   constructor(root: LayoutNode | null, options?: LayoutManagerOptions) {
+    // Validate the initial layout tree to catch errors early
+    assertValidLayoutTree(root);
+
     this._tree = new LayoutTree(root);
     this._options = {
       gap: options?.gap ?? 10,
@@ -42,6 +46,8 @@ export class LayoutManager {
   }
 
   set root(root: LayoutNode | null) {
+    // Validate before setting to catch errors early
+    assertValidLayoutTree(root);
     this._tree.root = root;
     this.syncLayoutRects();
   }
@@ -65,17 +71,23 @@ export class LayoutManager {
 
   removePanel(id: string) {
     if (this._tree.root === null) {
-      throw new Error("Root node is null");
+      throw new Error(
+        `removePanel("${id}"): Cannot remove panel from empty layout`,
+      );
     }
 
     const node = this._tree.findNode(id);
 
     if (node === null) {
-      throw new Error(`Node with id ${id} not found`);
+      throw new Error(
+        `removePanel("${id}"): Panel not found in layout tree`,
+      );
     }
 
     if (node.type !== "panel") {
-      throw new Error(`Node with id ${id} is not a panel`);
+      throw new Error(
+        `removePanel("${id}"): Node is a ${node.type}, expected panel`,
+      );
     }
 
     if (node.id === this._tree.root.id) {
@@ -117,19 +129,27 @@ export class LayoutManager {
     point: Point;
   }) {
     if (this._tree.root === null) {
-      throw new Error("Root node is null");
+      throw new Error(
+        `movePanel("${sourceId}" → "${targetId}"): Cannot move panel in empty layout`,
+      );
     }
     if (this._tree.root.type !== "split") {
-      throw new Error("Root node is not a split node");
+      throw new Error(
+        `movePanel("${sourceId}" → "${targetId}"): Cannot move panel when layout has only one panel`,
+      );
     }
 
     const sourceNode = this._tree.findNode(sourceId);
 
     if (sourceNode === null) {
-      throw new Error(`Node with id ${sourceId} not found`);
+      throw new Error(
+        `movePanel("${sourceId}" → "${targetId}"): Source panel "${sourceId}" not found`,
+      );
     }
     if (sourceNode.type !== "panel") {
-      throw new Error(`Node with id ${sourceId} is not a panel node`);
+      throw new Error(
+        `movePanel("${sourceId}" → "${targetId}"): Source "${sourceId}" is a ${sourceNode.type}, expected panel`,
+      );
     }
 
     const sourceNodeParent = this._tree.findParentNode(sourceId);
@@ -138,10 +158,14 @@ export class LayoutManager {
     const targetNode = this._tree.findNode(targetId);
 
     if (targetNode === null) {
-      throw new Error(`Node with id ${targetId} not found`);
+      throw new Error(
+        `movePanel("${sourceId}" → "${targetId}"): Target panel "${targetId}" not found`,
+      );
     }
     if (targetNode.type !== "panel") {
-      throw new Error(`Node with id ${targetId} is not a panel node`);
+      throw new Error(
+        `movePanel("${sourceId}" → "${targetId}"): Target "${targetId}" is a ${targetNode.type}, expected panel`,
+      );
     }
 
     const sourceNodeSibling =
@@ -210,17 +234,23 @@ export class LayoutManager {
 
   resizePanel(id: string, point: Point) {
     if (this._tree.root === null) {
-      throw new Error("Root node is null");
+      throw new Error(
+        `resizePanel("${id}"): Cannot resize in empty layout`,
+      );
     }
 
     const resizingRect = this.findRect(id);
 
     if (resizingRect === null) {
-      throw new Error(`Rect with id ${id} not found`);
+      throw new Error(
+        `resizePanel("${id}"): Split bar not found in layout`,
+      );
     }
 
     if (resizingRect.type !== "split") {
-      throw new Error(`Rect with id ${id} is not a split node`);
+      throw new Error(
+        `resizePanel("${id}"): Expected split bar, got ${resizingRect.type}`,
+      );
     }
 
     const splitNode = this._tree.findNode(id);
@@ -266,7 +296,9 @@ export class LayoutManager {
     const targetNode = this._tree.findNode(targetId);
 
     if (targetNode === null) {
-      throw new Error(`Node with id ${targetId} not found`);
+      throw new Error(
+        `addPanel("${id}"): Placement strategy returned target "${targetId}" which was not found in layout tree`,
+      );
     }
 
     const targetNodeParent = this._tree.findParentNode(targetId);

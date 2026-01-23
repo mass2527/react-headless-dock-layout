@@ -8,7 +8,7 @@ describe("LayoutManager", () => {
       const root = null;
       const layoutManager = new LayoutManager(root);
       expect(() => layoutManager.resizePanel("root", { x: 0, y: 0 })).toThrow(
-        "Root node is null",
+        /resizePanel.*Cannot resize.*empty layout/,
       );
     });
 
@@ -20,7 +20,7 @@ describe("LayoutManager", () => {
       const layoutManager = new LayoutManager(root);
       expect(() =>
         layoutManager.resizePanel("non-existent-id", { x: 0, y: 0 }),
-      ).toThrow("Rect with id non-existent-id not found");
+      ).toThrow(/resizePanel.*non-existent-id.*not found/);
     });
 
     it("should throw an error when the rect is not a split node", () => {
@@ -30,7 +30,7 @@ describe("LayoutManager", () => {
       };
       const layoutManager = new LayoutManager(root);
       expect(() => layoutManager.resizePanel("root", { x: 0, y: 0 })).toThrow(
-        "Rect with id root is not a split node",
+        /resizePanel.*Expected split.*got panel/,
       );
     });
 
@@ -190,7 +190,7 @@ describe("LayoutManager", () => {
     it("should throw an error if the root is null", () => {
       const layoutManager = new LayoutManager(null);
       expect(() => layoutManager.removePanel("root")).toThrowError(
-        "Root node is null",
+        /removePanel.*Cannot remove.*empty layout/,
       );
     });
 
@@ -200,7 +200,7 @@ describe("LayoutManager", () => {
         type: "panel",
       });
       expect(() => layoutManager.removePanel("nonexistent")).toThrowError(
-        "Node with id nonexistent not found",
+        /removePanel.*nonexistent.*not found/,
       );
     });
 
@@ -220,7 +220,7 @@ describe("LayoutManager", () => {
         },
       });
       expect(() => layoutManager.removePanel("root")).toThrowError(
-        "Node with id root is not a panel",
+        /removePanel.*root.*is a split.*expected panel/,
       );
     });
 
@@ -312,7 +312,7 @@ describe("LayoutManager", () => {
           targetId: "target",
           point: { x: 0, y: 0 },
         }),
-      ).toThrowError("Root node is null");
+      ).toThrowError(/movePanel.*Cannot move.*empty layout/);
     });
 
     it("should throw an error if the root is not a split node", () => {
@@ -326,7 +326,7 @@ describe("LayoutManager", () => {
           targetId: "target",
           point: { x: 0, y: 0 },
         }),
-      ).toThrowError("Root node is not a split node");
+      ).toThrowError(/movePanel.*Cannot move.*only one panel/);
     });
 
     it("should throw an error if the source node is not found", () => {
@@ -350,7 +350,7 @@ describe("LayoutManager", () => {
           targetId: "target",
           point: { x: 0, y: 0 },
         }),
-      ).toThrowError("Node with id nonexistent not found");
+      ).toThrowError(/movePanel.*Source panel "nonexistent" not found/);
     });
 
     it("should throw an error if the source node is not a panel node", () => {
@@ -384,7 +384,7 @@ describe("LayoutManager", () => {
           targetId: "target",
           point: { x: 0, y: 0 },
         }),
-      ).toThrowError("Node with id left is not a panel node");
+      ).toThrowError(/movePanel.*Source "left" is a split.*expected panel/);
     });
 
     it("should throw an error if the target node is not found", () => {
@@ -408,7 +408,7 @@ describe("LayoutManager", () => {
           targetId: "nonexistent",
           point: { x: 0, y: 0 },
         }),
-      ).toThrowError("Node with id nonexistent not found");
+      ).toThrowError(/movePanel.*Target panel "nonexistent" not found/);
     });
 
     it("should throw an error if the target node is not a panel node", () => {
@@ -442,7 +442,7 @@ describe("LayoutManager", () => {
           targetId: "right",
           point: { x: 0, y: 0 },
         }),
-      ).toThrowError("Node with id right is not a panel node");
+      ).toThrowError(/movePanel.*Target "right" is a split.*expected panel/);
     });
 
     it("should move the panel when the source node is the sibling of the target node", () => {
