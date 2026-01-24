@@ -8,7 +8,7 @@ describe("LayoutManager", () => {
       const root = null;
       const layoutManager = new LayoutManager(root);
       expect(() => layoutManager.resizePanel("root", { x: 0, y: 0 })).toThrow(
-        "Cannot resize panel: layout tree root is null.",
+        "resizePanel requires a non-empty layout tree.",
       );
     });
 
@@ -20,7 +20,7 @@ describe("LayoutManager", () => {
       const layoutManager = new LayoutManager(root);
       expect(() =>
         layoutManager.resizePanel("non-existent-id", { x: 0, y: 0 }),
-      ).toThrow("Cannot resize panel: split bar rect not found in layout.");
+      ).toThrow("Split bar being resized must exist in the layout.");
     });
 
     it("should throw an error when the rect is not a split node", () => {
@@ -30,7 +30,7 @@ describe("LayoutManager", () => {
       };
       const layoutManager = new LayoutManager(root);
       expect(() => layoutManager.resizePanel("root", { x: 0, y: 0 })).toThrow(
-        "Cannot resize panel: rect must be a split bar type.",
+        "Only split bars can be resized.",
       );
     });
 
@@ -190,7 +190,7 @@ describe("LayoutManager", () => {
     it("should throw an error if the root is null", () => {
       const layoutManager = new LayoutManager(null);
       expect(() => layoutManager.removePanel("root")).toThrowError(
-        "Cannot remove panel: layout tree root is null.",
+        "removePanel requires a non-empty layout tree.",
       );
     });
 
@@ -312,7 +312,7 @@ describe("LayoutManager", () => {
           targetId: "target",
           point: { x: 0, y: 0 },
         }),
-      ).toThrowError("Cannot move panel: layout tree root is null.");
+      ).toThrowError("movePanel requires a non-empty layout tree.");
     });
 
     it("should throw an error if the root is not a split node", () => {
@@ -327,7 +327,7 @@ describe("LayoutManager", () => {
           point: { x: 0, y: 0 },
         }),
       ).toThrowError(
-        "Cannot move panel: root node must be a split node for move operations.",
+        "movePanel requires at least two panels in the layout tree.",
       );
     });
 

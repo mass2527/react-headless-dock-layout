@@ -59,12 +59,12 @@ export class LayoutTree {
     const oldChildNode = this.findNode(oldChildId);
     invariant(
       oldChildNode !== null,
-      "Child node must exist in tree when replacing.",
+      "replaceChildNode requires the child to exist in the tree.",
     );
 
     invariant(
       parent.left.id === oldChildId || parent.right.id === oldChildId,
-      "Child node must be a direct child of the specified parent node.",
+      "replaceChildNode requires the child to be a direct child of the parent.",
     );
 
     if (parent.left.id === oldChildId) {

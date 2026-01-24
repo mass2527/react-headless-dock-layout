@@ -12,7 +12,7 @@ export function useResizeObserver<T extends HTMLElement>(
     const element = ref.current;
     invariant(
       element !== null,
-      "useResizeObserver ref must be attached to an element before effect runs.",
+      "useResizeObserver ref must be attached to a DOM element.",
     );
 
     const resizeObserver = new ResizeObserver((entries) => {

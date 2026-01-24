@@ -144,7 +144,7 @@ export function useDockLayout<T extends HTMLElement>(
             const container = containerRef.current;
             invariant(
               container !== null,
-              "containerRef must be attached to an element before pointer events.",
+              "containerRef must be attached to a DOM element to handle pointer events.",
             );
 
             const rect = container.getBoundingClientRect();
