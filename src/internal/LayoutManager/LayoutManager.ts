@@ -64,9 +64,10 @@ export class LayoutManager {
   }
 
   removePanel(id: string) {
-    if (this._tree.root === null) {
-      throw new Error("Root node is null");
-    }
+    invariant(
+      this._tree.root !== null,
+      "Cannot remove panel: layout tree root is null.",
+    );
 
     const node = this._tree.findNode(id);
 
@@ -85,7 +86,10 @@ export class LayoutManager {
     }
 
     const parentNode = this._tree.findParentNode(id);
-    invariant(parentNode !== null, "Parent node is not null");
+    invariant(
+      parentNode !== null,
+      "Parent node must exist for non-root panel being removed.",
+    );
 
     const siblingNode =
       parentNode.left.id === node.id ? parentNode.right : parentNode.left;
@@ -97,7 +101,10 @@ export class LayoutManager {
     }
 
     const grandParentNode = this._tree.findParentNode(parentNode.id);
-    invariant(grandParentNode !== null, "Grand parent node is not null");
+    invariant(
+      grandParentNode !== null,
+      "Grandparent node must exist when parent is not root.",
+    );
 
     this._tree.replaceChildNode({
       parent: grandParentNode,
@@ -116,12 +123,14 @@ export class LayoutManager {
     targetId: string;
     point: Point;
   }) {
-    if (this._tree.root === null) {
-      throw new Error("Root node is null");
-    }
-    if (this._tree.root.type !== "split") {
-      throw new Error("Root node is not a split node");
-    }
+    invariant(
+      this._tree.root !== null,
+      "Cannot move panel: layout tree root is null.",
+    );
+    invariant(
+      this._tree.root.type === "split",
+      "Cannot move panel: root node must be a split node for move operations.",
+    );
 
     const sourceNode = this._tree.findNode(sourceId);
 
@@ -133,7 +142,10 @@ export class LayoutManager {
     }
 
     const sourceNodeParent = this._tree.findParentNode(sourceId);
-    invariant(sourceNodeParent !== null);
+    invariant(
+      sourceNodeParent !== null,
+      "Source node parent must exist when moving a panel.",
+    );
 
     const targetNode = this._tree.findNode(targetId);
 
@@ -150,8 +162,14 @@ export class LayoutManager {
         : sourceNodeParent.left;
 
     const targetRect = this.findRect(targetId);
-    invariant(targetRect !== null);
-    invariant(targetRect.type === "panel");
+    invariant(
+      targetRect !== null,
+      "Target panel rect must exist when moving a panel.",
+    );
+    invariant(
+      targetRect.type === "panel",
+      "Target rect must be a panel type when moving a panel.",
+    );
     const direction = findClosestDirection(targetRect, point);
 
     if (sourceNodeSibling.id === targetId) {
@@ -192,7 +210,10 @@ export class LayoutManager {
     }
 
     const targetNodeParent = this._tree.findParentNode(targetId);
-    invariant(targetNodeParent !== null);
+    invariant(
+      targetNodeParent !== null,
+      "Target node parent must exist after source node removal.",
+    );
     const splitNode = this.createSplitNode({
       direction,
       sourceNode,
@@ -209,23 +230,30 @@ export class LayoutManager {
   }
 
   resizePanel(id: string, point: Point) {
-    if (this._tree.root === null) {
-      throw new Error("Root node is null");
-    }
+    invariant(
+      this._tree.root !== null,
+      "Cannot resize panel: layout tree root is null.",
+    );
 
     const resizingRect = this.findRect(id);
-
-    if (resizingRect === null) {
-      throw new Error(`Rect with id ${id} not found`);
-    }
-
-    if (resizingRect.type !== "split") {
-      throw new Error(`Rect with id ${id} is not a split node`);
-    }
+    invariant(
+      resizingRect !== null,
+      "Cannot resize panel: split bar rect not found in layout.",
+    );
+    invariant(
+      resizingRect.type === "split",
+      "Cannot resize panel: rect must be a split bar type.",
+    );
 
     const splitNode = this._tree.findNode(id);
-    invariant(splitNode !== null, "Split node is not null");
-    invariant(splitNode.type === "split", "Split node is a split");
+    invariant(
+      splitNode !== null,
+      "Split node must exist in tree when its rect exists.",
+    );
+    invariant(
+      splitNode.type === "split",
+      "Node must be a split type when its rect is a split bar.",
+    );
 
     splitNode.ratio = this.calculateResizeRatio(splitNode, resizingRect, point);
 
@@ -270,7 +298,10 @@ export class LayoutManager {
     }
 
     const targetNodeParent = this._tree.findParentNode(targetId);
-    invariant(targetNodeParent !== null, "Target node parent is not null");
+    invariant(
+      targetNodeParent !== null,
+      "Target node parent must exist when target is not root.",
+    );
 
     const splitNode = this.createSplitNode({
       direction,
@@ -300,11 +331,14 @@ export class LayoutManager {
   }) {
     invariant(
       draggedPanelId !== targetPanelId,
-      "Dragged panel id is not the same as target panel id",
+      "Cannot calculate drop target: dragged panel and target panel must be different.",
     );
 
     const targetRect = this.findRect(targetPanelId);
-    invariant(targetRect !== null && targetRect.type === "panel");
+    invariant(
+      targetRect !== null && targetRect.type === "panel",
+      "Target panel rect must exist and be a panel type.",
+    );
 
     return {
       id: targetPanelId,
@@ -387,12 +421,21 @@ export class LayoutManager {
 
   private getSurroundingRect(id: string): Rect {
     const node = this._tree.findNode(id);
-    invariant(node !== null, "Node is not null");
+    invariant(
+      node !== null,
+      "Node must exist in tree when calculating surrounding rect.",
+    );
 
     if (node.type === "panel") {
       const rect = this.findRect(id);
-      invariant(rect !== null, "Rect is not null");
-      invariant(rect.type === "panel", "Rect is a panel");
+      invariant(
+        rect !== null,
+        "Panel rect must exist when node exists in tree.",
+      );
+      invariant(
+        rect.type === "panel",
+        "Rect type must match node type for panel nodes.",
+      );
 
       return {
         x: rect.x,

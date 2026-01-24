@@ -1,6 +1,7 @@
 import type { LayoutNode, SplitNode } from "../../types";
 import { assertNever } from "../assertNever";
 import { findParentNode } from "../findParentNode";
+import { invariant } from "../invariant";
 
 export class LayoutTree {
   private _root: LayoutNode | null = null;
@@ -56,18 +57,20 @@ export class LayoutTree {
     newChild: LayoutNode;
   }) {
     const oldChildNode = this.findNode(oldChildId);
-    if (oldChildNode === null) {
-      throw new Error(`Child node with id ${oldChildId} not found`);
-    }
+    invariant(
+      oldChildNode !== null,
+      "Child node must exist in tree when replacing.",
+    );
+
+    invariant(
+      parent.left.id === oldChildId || parent.right.id === oldChildId,
+      "Child node must be a direct child of the specified parent node.",
+    );
 
     if (parent.left.id === oldChildId) {
       parent.left = newChild;
-    } else if (parent.right.id === oldChildId) {
-      parent.right = newChild;
     } else {
-      throw new Error(
-        `Child node with id ${oldChildId} is not a child of the parent node with id ${parent.id}`,
-      );
+      parent.right = newChild;
     }
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { invariant } from "./invariant";
 import { useStableCallback } from "./useStableCallback";
 
 export function useResizeObserver<T extends HTMLElement>(
@@ -9,10 +10,10 @@ export function useResizeObserver<T extends HTMLElement>(
 
   useEffect(() => {
     const element = ref.current;
-
-    if (element === null) {
-      throw new Error("Ref is not attached to an element");
-    }
+    invariant(
+      element !== null,
+      "useResizeObserver ref must be attached to an element before effect runs.",
+    );
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {

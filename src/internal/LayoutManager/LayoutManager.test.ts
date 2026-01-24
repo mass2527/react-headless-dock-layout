@@ -8,7 +8,7 @@ describe("LayoutManager", () => {
       const root = null;
       const layoutManager = new LayoutManager(root);
       expect(() => layoutManager.resizePanel("root", { x: 0, y: 0 })).toThrow(
-        "Root node is null",
+        "Cannot resize panel: layout tree root is null.",
       );
     });
 
@@ -20,7 +20,7 @@ describe("LayoutManager", () => {
       const layoutManager = new LayoutManager(root);
       expect(() =>
         layoutManager.resizePanel("non-existent-id", { x: 0, y: 0 }),
-      ).toThrow("Rect with id non-existent-id not found");
+      ).toThrow("Cannot resize panel: split bar rect not found in layout.");
     });
 
     it("should throw an error when the rect is not a split node", () => {
@@ -30,7 +30,7 @@ describe("LayoutManager", () => {
       };
       const layoutManager = new LayoutManager(root);
       expect(() => layoutManager.resizePanel("root", { x: 0, y: 0 })).toThrow(
-        "Rect with id root is not a split node",
+        "Cannot resize panel: rect must be a split bar type.",
       );
     });
 
@@ -190,7 +190,7 @@ describe("LayoutManager", () => {
     it("should throw an error if the root is null", () => {
       const layoutManager = new LayoutManager(null);
       expect(() => layoutManager.removePanel("root")).toThrowError(
-        "Root node is null",
+        "Cannot remove panel: layout tree root is null.",
       );
     });
 
@@ -312,7 +312,7 @@ describe("LayoutManager", () => {
           targetId: "target",
           point: { x: 0, y: 0 },
         }),
-      ).toThrowError("Root node is null");
+      ).toThrowError("Cannot move panel: layout tree root is null.");
     });
 
     it("should throw an error if the root is not a split node", () => {
@@ -326,7 +326,9 @@ describe("LayoutManager", () => {
           targetId: "target",
           point: { x: 0, y: 0 },
         }),
-      ).toThrowError("Root node is not a split node");
+      ).toThrowError(
+        "Cannot move panel: root node must be a split node for move operations.",
+      );
     });
 
     it("should throw an error if the source node is not found", () => {

@@ -5,6 +5,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { assertNever } from "./internal/assertNever";
+import { invariant } from "./internal/invariant";
 import { LayoutManager } from "./internal/LayoutManager/LayoutManager";
 import type { Direction } from "./internal/LayoutManager/types";
 import { useCursor } from "./internal/useCursor";
@@ -141,10 +142,10 @@ export function useDockLayout<T extends HTMLElement>(
             }
 
             const container = containerRef.current;
-
-            if (container === null) {
-              throw new Error("containerRef is not attached to an element");
-            }
+            invariant(
+              container !== null,
+              "containerRef must be attached to an element before pointer events.",
+            );
 
             const rect = container.getBoundingClientRect();
             layoutManager.resizePanel(resizingRect.id, {

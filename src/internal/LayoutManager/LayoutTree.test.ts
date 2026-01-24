@@ -225,7 +225,7 @@ describe("LayoutTree", () => {
           oldChildId: "non-existent-child-id",
           newChild: { id: "new-child", type: "panel" },
         }),
-      ).toThrowError("Child node with id non-existent-child-id not found");
+      ).toThrowError("Child node must exist in tree when replacing.");
     });
 
     it("should throw an error if the child node is not a child of the parent node", () => {
@@ -252,7 +252,7 @@ describe("LayoutTree", () => {
           newChild: { id: "new-child", type: "panel" },
         }),
       ).toThrow(
-        "Child node with id right-left is not a child of the parent node with id root",
+        "Child node must be a direct child of the specified parent node.",
       );
     });
 
