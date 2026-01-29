@@ -232,6 +232,83 @@ export class LayoutManager {
     this.syncLayoutRects();
   }
 
+  /**
+   * Resize a split by a delta ratio value.
+   * Used for keyboard-based resizing.
+   * @param id - The ID of the split node to resize
+   * @param delta - The ratio delta to apply (positive = increase left/top, negative = decrease)
+   */
+  resizePanelByDelta(id: string, delta: number) {
+    if (this._tree.root === null) {
+      throw new Error("Root node is null");
+    }
+
+    const splitNode = this._tree.findNode(id);
+    if (splitNode === null) {
+      throw new Error(`Node with id ${id} not found`);
+    }
+    if (splitNode.type !== "split") {
+      throw new Error(`Node with id ${id} is not a split node`);
+    }
+
+    const newRatio = clamp(
+      splitNode.ratio + delta,
+      this.MIN_RESIZE_RATIO,
+      this.MAX_RESIZE_RATIO,
+    );
+
+    splitNode.ratio = newRatio;
+    this.syncLayoutRects();
+  }
+
+  /**
+   * Get the current ratio of a split node.
+   * Used for ARIA value reporting.
+   * @param id - The ID of the split node
+   * @returns The current ratio (0-1) or null if not found
+   */
+  getSplitRatio(id: string): number | null {
+    const node = this._tree.findNode(id);
+    if (node === null || node.type !== "split") {
+      return null;
+    }
+    return node.ratio;
+  }
+
+  /**
+   * Get the IDs of panels adjacent to a split bar.
+   * Used for ARIA labeling.
+   * @param id - The ID of the split node
+   * @returns Object with leftId and rightId, or null if not found
+   */
+  getAdjacentPanelIds(id: string): { leftId: string; rightId: string } | null {
+    const node = this._tree.findNode(id);
+    if (node === null || node.type !== "split") {
+      return null;
+    }
+
+    // Find the leftmost panel in the left subtree
+    const findLeftmostPanelId = (node: LayoutNode): string => {
+      if (node.type === "panel") {
+        return node.id;
+      }
+      return findLeftmostPanelId(node.left);
+    };
+
+    // Find the rightmost panel in the right subtree
+    const findRightmostPanelId = (node: LayoutNode): string => {
+      if (node.type === "panel") {
+        return node.id;
+      }
+      return findRightmostPanelId(node.right);
+    };
+
+    return {
+      leftId: findLeftmostPanelId(node.left),
+      rightId: findRightmostPanelId(node.right),
+    };
+  }
+
   addPanel(id: string) {
     if (this._tree.root === null) {
       this._tree.root = {

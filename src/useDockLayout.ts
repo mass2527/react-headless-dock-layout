@@ -1,6 +1,10 @@
 import {
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -16,6 +20,39 @@ import type {
   PanelLayoutRect,
   SplitLayoutRect,
 } from "./types";
+
+/** Drop target information for keyboard navigation */
+export interface DropTarget {
+  targetId: string;
+  direction: Direction;
+}
+
+/** Props for the screen reader announcement region */
+export interface AnnouncementProps {
+  role: "status";
+  "aria-live": "polite";
+  "aria-atomic": true;
+  children: string | null;
+}
+
+/** Accessibility props for panel elements */
+export interface PanelA11yProps {
+  role: "region";
+  "aria-label": string;
+  tabIndex: number;
+}
+
+/** Accessibility props for split bar elements */
+export interface SplitBarA11yProps {
+  role: "separator";
+  "aria-orientation": "horizontal" | "vertical";
+  "aria-valuenow": number;
+  "aria-valuemin": number;
+  "aria-valuemax": number;
+  "aria-label": string;
+  "aria-controls": string;
+  tabIndex: number;
+}
 
 /**
  * Main hook for managing a dock layout.
@@ -87,6 +124,36 @@ export function useDockLayout<T extends HTMLElement>(
     direction: Direction;
   } | null>(null);
 
+  // Accessibility state
+  const [announcement, setAnnouncement] = useState<string | null>(null);
+  const [movingPanelId, setMovingPanelId] = useState<string | null>(null);
+  const [keyboardDropTarget, setKeyboardDropTarget] =
+    useState<DropTarget | null>(null);
+  const [focusedPanelId, setFocusedPanelId] = useState<string | null>(null);
+
+  // Auto-clear announcements after a delay
+  const announcementTimeoutRef = useRef<number | null>(null);
+
+  const announce = useCallback((message: string) => {
+    if (announcementTimeoutRef.current !== null) {
+      window.clearTimeout(announcementTimeoutRef.current);
+    }
+    setAnnouncement(message);
+    announcementTimeoutRef.current = window.setTimeout(() => {
+      setAnnouncement(null);
+      announcementTimeoutRef.current = null;
+    }, 1000);
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (announcementTimeoutRef.current !== null) {
+        window.clearTimeout(announcementTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const containerRef = useResizeObserver<T>((entry) => {
     layoutManager.setSize({
       width: entry.contentRect.width,
@@ -96,6 +163,184 @@ export function useDockLayout<T extends HTMLElement>(
 
   useCursor(
     resizingRect === null ? "default" : CURSORS[resizingRect.orientation],
+  );
+
+  // Get all panel rects for keyboard navigation
+  const getPanelRects = useCallback(() => {
+    return layoutRects.filter(
+      (rect): rect is PanelLayoutRect => rect.type === "panel",
+    );
+  }, [layoutRects]);
+
+  // Get available drop targets for a given panel
+  const getAvailableDropTargets = useCallback(
+    (sourceId: string): DropTarget[] => {
+      const panels = getPanelRects();
+      const targets: DropTarget[] = [];
+
+      for (const panel of panels) {
+        if (panel.id !== sourceId) {
+          for (const direction of DIRECTIONS) {
+            targets.push({ targetId: panel.id, direction });
+          }
+        }
+      }
+
+      return targets;
+    },
+    [getPanelRects],
+  );
+
+  // Cycle through drop targets
+  const cycleDropTarget = useCallback(
+    (direction: "next" | "prev") => {
+      if (movingPanelId === null) return;
+
+      const targets = getAvailableDropTargets(movingPanelId);
+      if (targets.length === 0) return;
+
+      if (keyboardDropTarget === null) {
+        const target = direction === "next" ? targets[0] : targets[targets.length - 1];
+        if (target === undefined) return;
+        setKeyboardDropTarget(target);
+        announce(`Drop ${target.direction} of panel ${target.targetId}`);
+        return;
+      }
+
+      const currentIndex = targets.findIndex(
+        (t) =>
+          t.targetId === keyboardDropTarget.targetId &&
+          t.direction === keyboardDropTarget.direction,
+      );
+
+      let newIndex: number;
+      if (direction === "next") {
+        newIndex = (currentIndex + 1) % targets.length;
+      } else {
+        newIndex = (currentIndex - 1 + targets.length) % targets.length;
+      }
+
+      const newTarget = targets[newIndex];
+      if (newTarget === undefined) return;
+      setKeyboardDropTarget(newTarget);
+      announce(`Drop ${newTarget.direction} of panel ${newTarget.targetId}`);
+    },
+    [movingPanelId, keyboardDropTarget, getAvailableDropTargets, announce],
+  );
+
+  // Start keyboard move mode
+  const startKeyboardMove = useCallback(
+    (panelId: string) => {
+      setMovingPanelId(panelId);
+      setKeyboardDropTarget(null);
+      announce(
+        `Moving panel ${panelId}. Use arrow keys to select drop position, Enter to confirm, Escape to cancel.`,
+      );
+    },
+    [announce],
+  );
+
+  // Cancel keyboard move
+  const cancelKeyboardMove = useCallback(() => {
+    if (movingPanelId !== null) {
+      announce("Move cancelled");
+    }
+    setMovingPanelId(null);
+    setKeyboardDropTarget(null);
+  }, [movingPanelId, announce]);
+
+  // Confirm keyboard drop
+  const confirmKeyboardDrop = useCallback(() => {
+    if (movingPanelId === null || keyboardDropTarget === null) return;
+
+    const targetRect = layoutRects.find(
+      (r) => r.id === keyboardDropTarget.targetId,
+    );
+    if (!targetRect || targetRect.type !== "panel") return;
+
+    // Calculate a point that represents the drop direction
+    const point = getPointForDirection(targetRect, keyboardDropTarget.direction);
+
+    layoutManager.movePanel({
+      sourceId: movingPanelId,
+      targetId: keyboardDropTarget.targetId,
+      point,
+    });
+
+    announce(
+      `Panel ${movingPanelId} moved ${keyboardDropTarget.direction} of panel ${keyboardDropTarget.targetId}`,
+    );
+
+    setFocusedPanelId(movingPanelId);
+    setMovingPanelId(null);
+    setKeyboardDropTarget(null);
+  }, [movingPanelId, keyboardDropTarget, layoutRects, layoutManager, announce]);
+
+  // Handle keyboard resize for split bars
+  const handleSplitKeyDown = useCallback(
+    (event: ReactKeyboardEvent, rect: SplitLayoutRect) => {
+      const SMALL_STEP = 0.01;
+      const LARGE_STEP = 0.1;
+
+      const isHorizontal = rect.orientation === "horizontal";
+      const increaseKey = isHorizontal ? "ArrowRight" : "ArrowDown";
+      const decreaseKey = isHorizontal ? "ArrowLeft" : "ArrowUp";
+
+      if (event.key === increaseKey || event.key === decreaseKey) {
+        event.preventDefault();
+        const step = event.shiftKey ? LARGE_STEP : SMALL_STEP;
+        const delta = event.key === increaseKey ? step : -step;
+        layoutManager.resizePanelByDelta(rect.id, delta);
+
+        const ratio = layoutManager.getSplitRatio(rect.id);
+        if (ratio !== null) {
+          announce(`${Math.round(ratio * 100)}%`);
+        }
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        layoutManager.resizePanelByDelta(rect.id, -1); // Will be clamped to min
+        announce("Minimum size");
+      } else if (event.key === "End") {
+        event.preventDefault();
+        layoutManager.resizePanelByDelta(rect.id, 1); // Will be clamped to max
+        announce("Maximum size");
+      }
+    },
+    [layoutManager, announce],
+  );
+
+  // Enhanced addPanel with announcement
+  const addPanel = useCallback(
+    (id: string) => {
+      layoutManager.addPanel(id);
+      setFocusedPanelId(id);
+      announce(`Panel ${id} added`);
+    },
+    [layoutManager, announce],
+  );
+
+  // Enhanced removePanel with announcement and focus management
+  const removePanel = useCallback(
+    (id: string) => {
+      const panels = getPanelRects();
+      const currentIndex = panels.findIndex((p) => p.id === id);
+
+      layoutManager.removePanel(id);
+      announce(`Panel ${id} removed`);
+
+      // Move focus to nearest panel
+      const remainingPanels = panels.filter((p) => p.id !== id);
+      if (remainingPanels.length > 0) {
+        const newIndex = Math.min(currentIndex, remainingPanels.length - 1);
+        const nextPanel = remainingPanels[newIndex];
+        if (nextPanel !== undefined) {
+          setFocusedPanelId(nextPanel.id);
+        }
+      } else {
+        setFocusedPanelId(null);
+      }
+    },
+    [layoutManager, getPanelRects, announce],
   );
 
   return {
@@ -131,6 +376,10 @@ export function useDockLayout<T extends HTMLElement>(
             cursor: CURSORS[rect.orientation],
             touchAction: "none",
           },
+          tabIndex: 0,
+          onKeyDown: (event: ReactKeyboardEvent) => {
+            handleSplitKeyDown(event, rect);
+          },
           onPointerDown: (event: ReactPointerEvent) => {
             event.currentTarget.setPointerCapture(event.pointerId);
             setResizingRect(rect);
@@ -146,10 +395,10 @@ export function useDockLayout<T extends HTMLElement>(
               throw new Error("containerRef is not attached to an element");
             }
 
-            const rect = container.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
             layoutManager.resizePanel(resizingRect.id, {
-              x: event.clientX - rect.left,
-              y: event.clientY - rect.top,
+              x: event.clientX - containerRect.left,
+              y: event.clientY - containerRect.top,
             });
           },
           onPointerUp: (event: ReactPointerEvent) => {
@@ -180,7 +429,7 @@ export function useDockLayout<T extends HTMLElement>(
               return;
             }
 
-            const dropTarget = layoutManager.calculateDropTarget({
+            const target = layoutManager.calculateDropTarget({
               draggedPanelId: draggingRect.id,
               targetPanelId: rect.id,
               point: {
@@ -188,7 +437,7 @@ export function useDockLayout<T extends HTMLElement>(
                 y: event.clientY,
               },
             });
-            setDropTarget(dropTarget);
+            setDropTarget(target);
           },
           onPointerUp: (event: ReactPointerEvent<T>) => {
             if (draggingRect === null) {
@@ -226,18 +475,21 @@ export function useDockLayout<T extends HTMLElement>(
      * @returns An object with `style` for the drop indicator, or `null` if not applicable.
      */
     getDropIndicatorProps: (rect: PanelLayoutRect) => {
-      if (draggingRect === null) {
-        return null;
+      // Check pointer-based dragging
+      if (draggingRect !== null && rect.id === dropTarget?.id) {
+        return {
+          style: getDropIndicatorStyle(dropTarget.direction),
+        };
       }
 
-      const isDropTargetRect = rect.id === dropTarget?.id;
-      if (!isDropTargetRect) {
-        return null;
+      // Check keyboard-based moving
+      if (movingPanelId !== null && rect.id === keyboardDropTarget?.targetId) {
+        return {
+          style: getDropIndicatorStyle(keyboardDropTarget.direction),
+        };
       }
 
-      return {
-        style: getDropIndicatorStyle(dropTarget.direction),
-      };
+      return null;
     },
     /**
      * Returns props for a drag handle element.
@@ -252,9 +504,39 @@ export function useDockLayout<T extends HTMLElement>(
           event.currentTarget.releasePointerCapture(event.pointerId);
           setDraggingRect(rect);
         },
+        onKeyDown: (event: ReactKeyboardEvent) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            if (movingPanelId === rect.id) {
+              // Already moving this panel - confirm drop
+              confirmKeyboardDrop();
+            } else if (movingPanelId !== null) {
+              // Moving a different panel - cancel and start new
+              cancelKeyboardMove();
+              startKeyboardMove(rect.id);
+            } else {
+              // Start moving
+              startKeyboardMove(rect.id);
+            }
+          } else if (event.key === "Escape" && movingPanelId !== null) {
+            event.preventDefault();
+            cancelKeyboardMove();
+          } else if (movingPanelId !== null) {
+            // Navigate drop targets with arrow keys
+            if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+              event.preventDefault();
+              cycleDropTarget("next");
+            } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+              event.preventDefault();
+              cycleDropTarget("prev");
+            }
+          }
+        },
         style: {
           touchAction: "none",
         },
+        "aria-pressed": movingPanelId === rect.id,
+        "aria-describedby": `drag-instructions-${rect.id}`,
       };
     },
     /**
@@ -269,7 +551,7 @@ export function useDockLayout<T extends HTMLElement>(
      * @param id - Unique identifier for the new panel.
      * @throws {Error} If the target node with the ID returned by the placement strategy is not found in the layout tree.
      */
-    addPanel: layoutManager.addPanel.bind(layoutManager),
+    addPanel,
     /**
      * Removes a panel from the layout.
      * If it's the last panel, the layout becomes empty (root becomes `null`).
@@ -278,13 +560,110 @@ export function useDockLayout<T extends HTMLElement>(
      * @param id - The ID of the panel to remove.
      * @throws {Error} If the panel is not found or if the root is null.
      */
-    removePanel: layoutManager.removePanel.bind(layoutManager),
+    removePanel,
     /**
      * The current root node of the layout tree.
      * Use this to serialize the layout state (e.g., `JSON.stringify(root)`).
      * Can be `null` if the layout is empty.
      */
     root: layoutManager.root,
+
+    // ===== Accessibility APIs =====
+
+    /**
+     * Current announcement message for screen readers.
+     * Renders in an aria-live region.
+     */
+    announcement,
+    /**
+     * Returns props for an aria-live announcement region.
+     * Include this in your component to announce layout changes to screen readers.
+     */
+    getAnnouncementProps: (): AnnouncementProps => ({
+      role: "status",
+      "aria-live": "polite",
+      "aria-atomic": true,
+      children: announcement,
+    }),
+    /**
+     * ID of the panel currently being moved via keyboard, or null.
+     */
+    movingPanelId,
+    /**
+     * Start keyboard-based panel move mode.
+     * @param panelId - The ID of the panel to move
+     */
+    startKeyboardMove,
+    /**
+     * Cancel the current keyboard move operation.
+     */
+    cancelKeyboardMove,
+    /**
+     * Confirm and execute the keyboard drop operation.
+     */
+    confirmKeyboardDrop,
+    /**
+     * The current drop target during keyboard navigation.
+     */
+    currentDropTarget: keyboardDropTarget,
+    /**
+     * Cycle through available drop targets.
+     * @param direction - 'next' or 'prev'
+     */
+    cycleDropTarget,
+    /**
+     * ID of the panel that should receive focus, or null.
+     * Use this to manage focus after layout operations.
+     */
+    focusedPanelId,
+    /**
+     * Set which panel should receive focus.
+     * @param id - Panel ID or null
+     */
+    setFocusedPanelId,
+    /**
+     * Returns accessibility props for a panel element.
+     * @param rect - The panel layout rectangle
+     * @param label - Optional custom label (defaults to panel ID)
+     */
+    getPanelA11yProps: (rect: PanelLayoutRect, label?: string): PanelA11yProps => ({
+      role: "region",
+      "aria-label": label ?? `Panel ${rect.id}`,
+      tabIndex: -1,
+    }),
+    /**
+     * Returns accessibility props for a split bar element.
+     * @param rect - The split bar layout rectangle
+     * @param label - Optional custom label
+     */
+    getSplitBarA11yProps: (
+      rect: SplitLayoutRect,
+      label?: string,
+    ): SplitBarA11yProps => {
+      const ratio = layoutManager.getSplitRatio(rect.id) ?? 0.5;
+      const adjacentPanels = layoutManager.getAdjacentPanelIds(rect.id);
+      const defaultLabel = adjacentPanels
+        ? `Resize between panel ${adjacentPanels.leftId} and panel ${adjacentPanels.rightId}`
+        : "Resize panels";
+
+      return {
+        role: "separator",
+        "aria-orientation": rect.orientation === "horizontal" ? "vertical" : "horizontal",
+        "aria-valuenow": Math.round(ratio * 100),
+        "aria-valuemin": 10,
+        "aria-valuemax": 90,
+        "aria-label": label ?? defaultLabel,
+        "aria-controls": adjacentPanels
+          ? `${adjacentPanels.leftId} ${adjacentPanels.rightId}`
+          : "",
+        tabIndex: 0,
+      };
+    },
+    /**
+     * Programmatically announce a message to screen readers.
+     * @param message - The message to announce
+     */
+    announce,
   };
 }
 
@@ -326,6 +705,27 @@ function getDropIndicatorStyle(direction: Direction) {
   }
 }
 
+function getPointForDirection(
+  rect: PanelLayoutRect,
+  direction: Direction,
+): { x: number; y: number } {
+  const centerX = rect.x + rect.width / 2;
+  const centerY = rect.y + rect.height / 2;
+
+  switch (direction) {
+    case "top":
+      return { x: centerX, y: rect.y + rect.height * 0.25 };
+    case "bottom":
+      return { x: centerX, y: rect.y + rect.height * 0.75 };
+    case "left":
+      return { x: rect.x + rect.width * 0.25, y: centerY };
+    case "right":
+      return { x: rect.x + rect.width * 0.75, y: centerY };
+    default:
+      assertNever(direction);
+  }
+}
+
 const CURSORS: Record<
   SplitLayoutRect["orientation"],
   NonNullable<CSSProperties["cursor"]>
@@ -333,3 +733,5 @@ const CURSORS: Record<
   horizontal: "col-resize",
   vertical: "row-resize",
 };
+
+const DIRECTIONS: Direction[] = ["top", "right", "bottom", "left"];
