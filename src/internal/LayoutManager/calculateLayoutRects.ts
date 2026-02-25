@@ -10,79 +10,60 @@ export function calculateLayoutRects(
     return [];
   }
 
-  const rects: LayoutRect[] = [];
-
-  const traverse = (node: LayoutNode, rect: Rect) => {
-    if (node.type === "split") {
-      if (node.orientation === "horizontal") {
-        rects.push({
+  const traverse = (node: LayoutNode, rect: Rect): LayoutRect[] => {
+    if (node.type === "panel") {
+      return [
+        {
           id: node.id,
-          type: "split",
-          orientation: node.orientation,
-          x: Math.round(rect.x + rect.width * node.ratio - options.gap / 2),
-          y: Math.round(rect.y),
-          width: Math.round(options.gap),
-          height: Math.round(rect.height),
-        });
-
-        traverse(node.left, {
-          x: rect.x,
-          y: rect.y,
-          width: rect.width * node.ratio - options.gap / 2,
-          height: rect.height,
-        });
-        traverse(node.right, {
-          x: rect.x + rect.width * node.ratio + options.gap / 2,
-          y: rect.y,
-          width: rect.width * (1 - node.ratio) - options.gap / 2,
-          height: rect.height,
-        });
-      } else if (node.orientation === "vertical") {
-        rects.push({
-          id: node.id,
-          type: "split",
-          orientation: node.orientation,
+          type: "panel",
           x: Math.round(rect.x),
-          y: Math.round(rect.y + rect.height * node.ratio - options.gap / 2),
+          y: Math.round(rect.y),
           width: Math.round(rect.width),
-          height: Math.round(options.gap),
-        });
+          height: Math.round(rect.height),
+        },
+      ];
+    } else if (node.type === "split") {
+      const isHorizontal = node.orientation === "horizontal";
+      const mainSize = isHorizontal ? rect.width : rect.height;
+      const mainPos = isHorizontal ? rect.x : rect.y;
+      const splitStart = mainPos + mainSize * node.ratio - options.gap / 2;
 
-        traverse(node.left, {
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height * node.ratio - options.gap / 2,
-        });
-        traverse(node.right, {
-          x: rect.x,
-          y: rect.y + rect.height * node.ratio + options.gap / 2,
-          width: rect.width,
-          height: rect.height * (1 - node.ratio) - options.gap / 2,
-        });
-      } else {
-        assertNever(node.orientation);
-      }
-    } else if (node.type === "panel") {
-      rects.push({
+      const splitRect: LayoutRect = {
         id: node.id,
-        type: "panel",
-        x: Math.round(rect.x),
-        y: Math.round(rect.y),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height),
-      });
+        type: "split",
+        orientation: node.orientation,
+        x: Math.round(isHorizontal ? splitStart : rect.x),
+        y: Math.round(isHorizontal ? rect.y : splitStart),
+        width: Math.round(isHorizontal ? options.gap : rect.width),
+        height: Math.round(isHorizontal ? rect.height : options.gap),
+      };
+
+      const leftSize = mainSize * node.ratio - options.gap / 2;
+      const rightSize = mainSize * (1 - node.ratio) - options.gap / 2;
+      const rightPos = mainPos + mainSize * node.ratio + options.gap / 2;
+
+      const leftRect: Rect = isHorizontal
+        ? { ...rect, width: leftSize }
+        : { ...rect, height: leftSize };
+
+      const rightRect: Rect = isHorizontal
+        ? { ...rect, x: rightPos, width: rightSize }
+        : { ...rect, y: rightPos, height: rightSize };
+
+      return [
+        splitRect,
+        ...traverse(node.left, leftRect),
+        ...traverse(node.right, rightRect),
+      ];
     } else {
       assertNever(node);
     }
   };
 
-  traverse(root, {
+  return traverse(root, {
     x: 0,
     y: 0,
     width: options.size.width,
     height: options.size.height,
   });
-
-  return rects;
 }

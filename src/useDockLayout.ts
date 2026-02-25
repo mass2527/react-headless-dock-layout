@@ -236,7 +236,7 @@ export function useDockLayout<T extends HTMLElement>(
       }
 
       return {
-        style: getDropIndicatorStyle(dropTarget.direction),
+        style: DROP_INDICATOR_STYLES[dropTarget.direction],
       };
     },
     /**
@@ -288,43 +288,15 @@ export function useDockLayout<T extends HTMLElement>(
   };
 }
 
-function getDropIndicatorStyle(direction: Direction) {
-  if (direction === "top") {
-    return {
-      position: "absolute",
-      left: 0,
-      top: 0,
-      width: "100%",
-      height: "50%",
-    } as const;
-  } else if (direction === "bottom") {
-    return {
-      position: "absolute",
-      left: 0,
-      top: "50%",
-      width: "100%",
-      height: "50%",
-    } as const;
-  } else if (direction === "left") {
-    return {
-      position: "absolute",
-      left: 0,
-      top: 0,
-      width: "50%",
-      height: "100%",
-    } as const;
-  } else if (direction === "right") {
-    return {
-      position: "absolute",
-      left: "50%",
-      top: 0,
-      width: "50%",
-      height: "100%",
-    } as const;
-  } else {
-    assertNever(direction);
-  }
-}
+const DROP_INDICATOR_STYLES: Record<
+  Direction,
+  { position: "absolute"; left: number | string; top: number | string; width: string; height: string }
+> = {
+  top: { position: "absolute", left: 0, top: 0, width: "100%", height: "50%" },
+  bottom: { position: "absolute", left: 0, top: "50%", width: "100%", height: "50%" },
+  left: { position: "absolute", left: 0, top: 0, width: "50%", height: "100%" },
+  right: { position: "absolute", left: "50%", top: 0, width: "50%", height: "100%" },
+};
 
 const CURSORS: Record<
   SplitLayoutRect["orientation"],

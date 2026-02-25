@@ -1,4 +1,3 @@
-import { assertNever } from "./internal/assertNever";
 import type { Direction } from "./internal/LayoutManager/types";
 import type { LayoutNode } from "./types";
 
@@ -39,19 +38,10 @@ export const equalWidthRightStrategy: PlacementStrategy = {
 function countHorizontalSplits(node: LayoutNode): number {
   if (node.type === "panel") {
     return 0;
-  } else if (node.type === "split") {
-    if (node.orientation === "horizontal") {
-      return (
-        1 + countHorizontalSplits(node.left) + countHorizontalSplits(node.right)
-      );
-    } else if (node.orientation === "vertical") {
-      return (
-        countHorizontalSplits(node.left) + countHorizontalSplits(node.right)
-      );
-    } else {
-      assertNever(node.orientation);
-    }
-  } else {
-    assertNever(node);
   }
+
+  const childCount =
+    countHorizontalSplits(node.left) + countHorizontalSplits(node.right);
+
+  return node.orientation === "horizontal" ? 1 + childCount : childCount;
 }
