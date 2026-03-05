@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { LayoutNode, PanelNode, SplitNode } from "../../types";
-import { LayoutTree } from "./LayoutTree";
+import { findNode, findParentNode, replaceChildNode } from "./LayoutTree";
 
 describe("LayoutTree", () => {
   describe("findNode", () => {
     it("should return null when the root is null", () => {
-      const root = null;
-      const tree = new LayoutTree(root);
-      expect(tree.findNode("root")).toBeNull();
+      expect(findNode(null, "root")).toBeNull();
     });
 
     it("should return null when the node is not found", () => {
@@ -15,8 +13,7 @@ describe("LayoutTree", () => {
         id: "root",
         type: "panel",
       };
-      const tree = new LayoutTree(root);
-      expect(tree.findNode("non-existent-id")).toBeNull();
+      expect(findNode(root, "non-existent-id")).toBeNull();
     });
 
     it("should return node when the node is root panel", () => {
@@ -24,8 +21,7 @@ describe("LayoutTree", () => {
         id: "root",
         type: "panel",
       };
-      const tree = new LayoutTree(root);
-      expect(tree.findNode("root")).toBe(root);
+      expect(findNode(root, "root")).toBe(root);
     });
 
     it("should return node when the node is root split", () => {
@@ -43,8 +39,7 @@ describe("LayoutTree", () => {
           type: "panel",
         },
       };
-      const tree = new LayoutTree(root);
-      expect(tree.findNode("root")).toEqual(root);
+      expect(findNode(root, "root")).toEqual(root);
     });
 
     it("should return node when the node is a child of the root", () => {
@@ -63,8 +58,7 @@ describe("LayoutTree", () => {
           type: "panel",
         },
       };
-      const tree = new LayoutTree(root);
-      expect(tree.findNode("left")).toEqual(left);
+      expect(findNode(root, "left")).toEqual(left);
     });
 
     it("should return node when the node is a grand child of the root", () => {
@@ -93,16 +87,13 @@ describe("LayoutTree", () => {
           type: "panel",
         },
       };
-      const tree = new LayoutTree(root);
-      expect(tree.findNode("left-left")).toBe(leftLeft);
+      expect(findNode(root, "left-left")).toBe(leftLeft);
     });
   });
 
   describe("findParentNode", () => {
     it("should return null when the root is null", () => {
-      const root = null;
-      const tree = new LayoutTree(root);
-      expect(tree.findParentNode("root")).toBeNull();
+      expect(findParentNode(null, "root")).toBeNull();
     });
 
     it("should return null when the child node is root panel", () => {
@@ -110,8 +101,7 @@ describe("LayoutTree", () => {
         id: "root",
         type: "panel",
       };
-      const tree = new LayoutTree(root);
-      expect(tree.findParentNode("root")).toBeNull();
+      expect(findParentNode(root, "root")).toBeNull();
     });
 
     it("should return null when the child node is root split", () => {
@@ -129,8 +119,7 @@ describe("LayoutTree", () => {
           type: "panel",
         },
       };
-      const tree = new LayoutTree(root);
-      expect(tree.findParentNode("root")).toBeNull();
+      expect(findParentNode(root, "root")).toBeNull();
     });
 
     it("should return null when the child node is not found", () => {
@@ -148,8 +137,7 @@ describe("LayoutTree", () => {
           type: "panel",
         },
       };
-      const tree = new LayoutTree(root);
-      expect(tree.findParentNode("non-existent-child-id")).toBeNull();
+      expect(findParentNode(root, "non-existent-child-id")).toBeNull();
     });
 
     it("should return node when the child node is a child of the root", () => {
@@ -167,8 +155,7 @@ describe("LayoutTree", () => {
           type: "panel",
         },
       };
-      const tree = new LayoutTree(root);
-      expect(tree.findParentNode("left")).toBe(root);
+      expect(findParentNode(root, "left")).toBe(root);
     });
 
     it("should return node when the child node is a grand child of the root", () => {
@@ -197,8 +184,7 @@ describe("LayoutTree", () => {
           type: "panel",
         },
       };
-      const tree = new LayoutTree(root);
-      expect(tree.findParentNode("left-left")).toBe(left);
+      expect(findParentNode(root, "left-left")).toBe(left);
     });
   });
 
@@ -218,9 +204,8 @@ describe("LayoutTree", () => {
           type: "panel",
         },
       };
-      const tree = new LayoutTree(root);
       expect(() =>
-        tree.replaceChildNode({
+        replaceChildNode(root, {
           parent: root,
           oldChildId: "non-existent-child-id",
           newChild: { id: "new-child", type: "panel" },
@@ -244,9 +229,8 @@ describe("LayoutTree", () => {
           right: { id: "right-right", type: "panel" },
         },
       };
-      const tree = new LayoutTree(root);
       expect(() =>
-        tree.replaceChildNode({
+        replaceChildNode(root, {
           parent: root,
           oldChildId: "right-left",
           newChild: { id: "new-child", type: "panel" },
@@ -271,12 +255,11 @@ describe("LayoutTree", () => {
           type: "panel",
         },
       };
-      const tree = new LayoutTree(root);
       const newChild: PanelNode = {
         id: "new-child",
         type: "panel",
       };
-      tree.replaceChildNode({
+      replaceChildNode(root, {
         parent: root,
         oldChildId: "left",
         newChild: newChild,
@@ -299,12 +282,11 @@ describe("LayoutTree", () => {
           type: "panel",
         },
       };
-      const tree = new LayoutTree(root);
       const newChild: PanelNode = {
         id: "new-child",
         type: "panel",
       };
-      tree.replaceChildNode({
+      replaceChildNode(root, {
         parent: root,
         oldChildId: "right",
         newChild: newChild,

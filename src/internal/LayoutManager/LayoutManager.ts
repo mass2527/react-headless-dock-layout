@@ -14,20 +14,20 @@ import { invariant } from "../invariant";
 import { calculateLayoutRects } from "./calculateLayoutRects";
 import { calculateMinSize } from "./calculateMinSize";
 import { findClosestDirection } from "./findClosestDirection";
-import { LayoutTree } from "./LayoutTree";
+import { findNode, findParentNode, replaceChildNode } from "./LayoutTree";
 import type { Direction, Point, Rect, Size } from "./types";
 
 export class LayoutManager {
   private readonly MIN_RESIZE_RATIO = 0.1;
   private readonly MAX_RESIZE_RATIO = 0.9;
 
-  private _tree: LayoutTree;
+  private _root: LayoutNode | null;
   private _options: Required<LayoutManagerOptions> & { size: Size };
   private _listeners = new Set<() => void>();
   private _layoutRects: LayoutRect[] = [];
 
   constructor(root: LayoutNode | null, options?: LayoutManagerOptions) {
-    this._tree = new LayoutTree(root);
+    this._root = root;
     this._options = {
       gap: options?.gap ?? 10,
       size: { width: 0, height: 0 },
@@ -38,11 +38,11 @@ export class LayoutManager {
   }
 
   get root() {
-    return this._tree.root;
+    return this._root;
   }
 
   set root(root: LayoutNode | null) {
-    this._tree.root = root;
+    this._root = root;
     this.syncLayoutRects();
   }
 
@@ -64,11 +64,11 @@ export class LayoutManager {
   }
 
   removePanel(id: string) {
-    if (this._tree.root === null) {
+    if (this._root === null) {
       throw new Error("Root node is null");
     }
 
-    const node = this._tree.findNode(id);
+    const node = findNode(this._root, id);
 
     if (node === null) {
       throw new Error(`Node with id ${id} not found`);
@@ -78,28 +78,28 @@ export class LayoutManager {
       throw new Error(`Node with id ${id} is not a panel`);
     }
 
-    if (node.id === this._tree.root.id) {
-      this._tree.root = null;
+    if (node.id === this._root.id) {
+      this._root = null;
       this.syncLayoutRects();
       return;
     }
 
-    const parentNode = this._tree.findParentNode(id);
+    const parentNode = findParentNode(this._root, id);
     invariant(parentNode !== null, "Parent node is not null");
 
     const siblingNode =
       parentNode.left.id === node.id ? parentNode.right : parentNode.left;
 
-    if (parentNode.id === this._tree.root.id) {
-      this._tree.root = siblingNode;
+    if (parentNode.id === this._root.id) {
+      this._root = siblingNode;
       this.syncLayoutRects();
       return;
     }
 
-    const grandParentNode = this._tree.findParentNode(parentNode.id);
+    const grandParentNode = findParentNode(this._root, parentNode.id);
     invariant(grandParentNode !== null, "Grand parent node is not null");
 
-    this._tree.replaceChildNode({
+    replaceChildNode(this._root, {
       parent: grandParentNode,
       oldChildId: parentNode.id,
       newChild: siblingNode,
@@ -116,14 +116,14 @@ export class LayoutManager {
     targetId: string;
     point: Point;
   }) {
-    if (this._tree.root === null) {
+    if (this._root === null) {
       throw new Error("Root node is null");
     }
-    if (this._tree.root.type !== "split") {
+    if (this._root.type !== "split") {
       throw new Error("Root node is not a split node");
     }
 
-    const sourceNode = this._tree.findNode(sourceId);
+    const sourceNode = findNode(this._root, sourceId);
 
     if (sourceNode === null) {
       throw new Error(`Node with id ${sourceId} not found`);
@@ -132,10 +132,10 @@ export class LayoutManager {
       throw new Error(`Node with id ${sourceId} is not a panel node`);
     }
 
-    const sourceNodeParent = this._tree.findParentNode(sourceId);
+    const sourceNodeParent = findParentNode(this._root, sourceId);
     invariant(sourceNodeParent !== null);
 
-    const targetNode = this._tree.findNode(targetId);
+    const targetNode = findNode(this._root, targetId);
 
     if (targetNode === null) {
       throw new Error(`Node with id ${targetId} not found`);
@@ -178,20 +178,21 @@ export class LayoutManager {
       return;
     }
 
-    const sourceNodeGrandParent = this._tree.findParentNode(
+    const sourceNodeGrandParent = findParentNode(
+      this._root,
       sourceNodeParent.id,
     );
     if (sourceNodeGrandParent === null) {
-      this._tree.root = sourceNodeSibling;
+      this._root = sourceNodeSibling;
     } else {
-      this._tree.replaceChildNode({
+      replaceChildNode(this._root, {
         parent: sourceNodeGrandParent,
         oldChildId: sourceNodeParent.id,
         newChild: sourceNodeSibling,
       });
     }
 
-    const targetNodeParent = this._tree.findParentNode(targetId);
+    const targetNodeParent = findParentNode(this._root, targetId);
     invariant(targetNodeParent !== null);
     const splitNode = this.createSplitNode({
       direction,
@@ -199,7 +200,7 @@ export class LayoutManager {
       targetNode,
     });
 
-    this._tree.replaceChildNode({
+    replaceChildNode(this._root, {
       parent: targetNodeParent,
       oldChildId: targetId,
       newChild: splitNode,
@@ -209,7 +210,7 @@ export class LayoutManager {
   }
 
   resizePanel(id: string, point: Point) {
-    if (this._tree.root === null) {
+    if (this._root === null) {
       throw new Error("Root node is null");
     }
 
@@ -223,7 +224,7 @@ export class LayoutManager {
       throw new Error(`Rect with id ${id} is not a split node`);
     }
 
-    const splitNode = this._tree.findNode(id);
+    const splitNode = findNode(this._root, id);
     invariant(splitNode !== null, "Split node is not null");
     invariant(splitNode.type === "split", "Split node is a split");
 
@@ -233,8 +234,8 @@ export class LayoutManager {
   }
 
   addPanel(id: string) {
-    if (this._tree.root === null) {
-      this._tree.root = {
+    if (this._root === null) {
+      this._root = {
         id,
         type: "panel",
       };
@@ -246,30 +247,30 @@ export class LayoutManager {
       targetId,
       direction,
       ratio = 0.5,
-    } = this._options.placementStrategy.getPlacementOnAdd(this._tree.root);
+    } = this._options.placementStrategy.getPlacementOnAdd(this._root);
 
-    if (targetId === this._tree.root.id) {
-      this._tree.root = this.createSplitNode({
+    if (targetId === this._root.id) {
+      this._root = this.createSplitNode({
         direction,
         ratio,
         sourceNode: {
           id,
           type: "panel",
         },
-        targetNode: this._tree.root,
+        targetNode: this._root,
       });
 
       this.syncLayoutRects();
       return;
     }
 
-    const targetNode = this._tree.findNode(targetId);
+    const targetNode = findNode(this._root, targetId);
 
     if (targetNode === null) {
       throw new Error(`Node with id ${targetId} not found`);
     }
 
-    const targetNodeParent = this._tree.findParentNode(targetId);
+    const targetNodeParent = findParentNode(this._root, targetId);
     invariant(targetNodeParent !== null, "Target node parent is not null");
 
     const splitNode = this.createSplitNode({
@@ -281,7 +282,7 @@ export class LayoutManager {
       targetNode,
       ratio,
     });
-    this._tree.replaceChildNode({
+    replaceChildNode(this._root, {
       parent: targetNodeParent,
       oldChildId: targetId,
       newChild: splitNode,
@@ -319,7 +320,7 @@ export class LayoutManager {
   }
 
   private syncLayoutRects() {
-    this._layoutRects = calculateLayoutRects(this._tree.root, this._options);
+    this._layoutRects = calculateLayoutRects(this._root, this._options);
     this.emit();
   }
 
@@ -386,7 +387,7 @@ export class LayoutManager {
   }
 
   private getSurroundingRect(id: string): Rect {
-    const node = this._tree.findNode(id);
+    const node = findNode(this._root, id);
     invariant(node !== null, "Node is not null");
 
     if (node.type === "panel") {
