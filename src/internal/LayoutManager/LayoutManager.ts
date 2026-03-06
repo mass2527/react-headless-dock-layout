@@ -1,11 +1,11 @@
-import { equalWidthRightStrategy } from "../../strategies";
+import { equalWidthRightStrategy } from "../../index";
 import type {
   LayoutManagerOptions,
   LayoutNode,
   LayoutRect,
   SplitLayoutRect,
   SplitNode,
-} from "../../types";
+} from "../../index";
 import { assertNever } from "../assertNever";
 import { clamp } from "../clamp";
 import { generateId } from "../generateId";

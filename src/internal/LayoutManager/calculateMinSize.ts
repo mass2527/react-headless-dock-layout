@@ -1,4 +1,4 @@
-import type { LayoutNode } from "../../types";
+import type { LayoutNode } from "../../index";
 import { assertNever } from "../assertNever";
 import type { Size } from "./types";
 

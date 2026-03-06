@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { LayoutRect, PanelNode, SplitNode } from "../../types";
+import type { LayoutRect, PanelNode, SplitNode } from "../../index";
 import { calculateLayoutRects } from "./calculateLayoutRects";
 
 describe("calculateLayoutRects", () => {

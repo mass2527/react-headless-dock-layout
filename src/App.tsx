@@ -1,5 +1,5 @@
 import { assertNever } from "./internal/assertNever";
-import { useDockLayout } from "./useDockLayout";
+import { useDockLayout } from "./index";
 
 export function App() {
   const {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PanelNode, SplitNode } from "../../types";
+import type { PanelNode, SplitNode } from "../../index";
 import { calculateMinSize } from "./calculateMinSize";
 
 describe("calculateMinSize", () => {

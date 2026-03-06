@@ -1,4 +1,4 @@
-import type { LayoutNode, SplitNode } from "../types";
+import type { LayoutNode, SplitNode } from "../index";
 import { assertNever } from "./assertNever";
 
 export function findParentNode(root: LayoutNode | null, id: string) {

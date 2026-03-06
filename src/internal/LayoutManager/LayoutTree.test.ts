@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { LayoutNode, PanelNode, SplitNode } from "../../types";
+import type { LayoutNode, PanelNode, SplitNode } from "../../index";
 import { LayoutTree } from "./LayoutTree";
 
 describe("LayoutTree", () => {

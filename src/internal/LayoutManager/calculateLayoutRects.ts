@@ -1,4 +1,4 @@
-import type { LayoutManagerOptions, LayoutNode, LayoutRect } from "../../types";
+import type { LayoutManagerOptions, LayoutNode, LayoutRect } from "../../index";
 import { assertNever } from "../assertNever";
 import type { Rect, Size } from "./types";
 
