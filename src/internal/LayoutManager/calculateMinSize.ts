@@ -1,5 +1,5 @@
 import type { LayoutNode } from "../../types";
-import { assertNever } from "../assertNever";
+import { assertNever } from "../utils";
 import type { Size } from "./types";
 
 export function calculateMinSize(node: LayoutNode, gap: number): Size {

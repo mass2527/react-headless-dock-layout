@@ -6,10 +6,7 @@ import type {
   SplitLayoutRect,
   SplitNode,
 } from "../../types";
-import { assertNever } from "../assertNever";
-import { clamp } from "../clamp";
-import { generateId } from "../generateId";
-import { invariant } from "../invariant";
+import { assertNever, clamp, generateId, invariant } from "../utils";
 
 import { calculateLayoutRects } from "./calculateLayoutRects";
 import { calculateMinSize } from "./calculateMinSize";

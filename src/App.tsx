@@ -1,4 +1,4 @@
-import { assertNever } from "./internal/assertNever";
+import { assertNever } from "./internal/utils";
 import { useDockLayout } from "./useDockLayout";
 
 export function App() {

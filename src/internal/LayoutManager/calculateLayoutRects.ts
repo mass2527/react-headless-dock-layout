@@ -1,5 +1,5 @@
 import type { LayoutManagerOptions, LayoutNode, LayoutRect } from "../../types";
-import { assertNever } from "../assertNever";
+import { assertNever } from "../utils";
 import type { Rect, Size } from "./types";
 
 export function calculateLayoutRects(

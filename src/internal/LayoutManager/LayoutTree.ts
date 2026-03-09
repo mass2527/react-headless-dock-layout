@@ -1,5 +1,5 @@
 import type { LayoutNode, SplitNode } from "../../types";
-import { assertNever } from "../assertNever";
+import { assertNever } from "../utils";
 import { findParentNode } from "../findParentNode";
 
 export class LayoutTree {
