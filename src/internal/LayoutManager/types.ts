@@ -18,24 +18,3 @@ export interface Rect {
 export type Orientation = "horizontal" | "vertical";
 
 export type Direction = "top" | "bottom" | "left" | "right";
-
-/**
- * Maps a direction to its corresponding split configuration.
- * Centralizes the knowledge of how directions relate to orientations
- * and child ordering (which side the "source" goes on).
- */
-export function directionToSplitConfig(direction: Direction): {
-  orientation: Orientation;
-  isSourceFirst: boolean;
-} {
-  switch (direction) {
-    case "left":
-      return { orientation: "horizontal", isSourceFirst: true };
-    case "right":
-      return { orientation: "horizontal", isSourceFirst: false };
-    case "top":
-      return { orientation: "vertical", isSourceFirst: true };
-    case "bottom":
-      return { orientation: "vertical", isSourceFirst: false };
-  }
-}

@@ -15,8 +15,23 @@ import { calculateLayoutRects } from "./calculateLayoutRects";
 import { calculateMinSize } from "./calculateMinSize";
 import { findClosestDirection } from "./findClosestDirection";
 import { LayoutTree } from "./LayoutTree";
-import { directionToSplitConfig } from "./types";
-import type { Direction, Point, Rect, Size } from "./types";
+import type { Direction, Orientation, Point, Rect, Size } from "./types";
+
+function directionToSplitConfig(direction: Direction): {
+  orientation: Orientation;
+  isSourceFirst: boolean;
+} {
+  switch (direction) {
+    case "left":
+      return { orientation: "horizontal", isSourceFirst: true };
+    case "right":
+      return { orientation: "horizontal", isSourceFirst: false };
+    case "top":
+      return { orientation: "vertical", isSourceFirst: true };
+    case "bottom":
+      return { orientation: "vertical", isSourceFirst: false };
+  }
+}
 
 export class LayoutManager {
   private readonly MIN_RESIZE_RATIO = 0.1;
