@@ -26,16 +26,16 @@ export type Direction = "top" | "bottom" | "left" | "right";
  */
 export function directionToSplitConfig(direction: Direction): {
   orientation: Orientation;
-  sourceIsLeft: boolean;
+  isSourceFirst: boolean;
 } {
   switch (direction) {
     case "left":
-      return { orientation: "horizontal", sourceIsLeft: true };
+      return { orientation: "horizontal", isSourceFirst: true };
     case "right":
-      return { orientation: "horizontal", sourceIsLeft: false };
+      return { orientation: "horizontal", isSourceFirst: false };
     case "top":
-      return { orientation: "vertical", sourceIsLeft: true };
+      return { orientation: "vertical", isSourceFirst: true };
     case "bottom":
-      return { orientation: "vertical", sourceIsLeft: false };
+      return { orientation: "vertical", isSourceFirst: false };
   }
 }

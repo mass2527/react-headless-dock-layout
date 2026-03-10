@@ -156,10 +156,10 @@ export class LayoutManager {
     const direction = findClosestDirection(targetRect, point);
 
     if (sourceNodeSibling.id === targetId) {
-      const { orientation, sourceIsLeft } = directionToSplitConfig(direction);
+      const { orientation, isSourceFirst } = directionToSplitConfig(direction);
       sourceNodeParent.orientation = orientation;
-      sourceNodeParent.left = sourceIsLeft ? sourceNode : targetNode;
-      sourceNodeParent.right = sourceIsLeft ? targetNode : sourceNode;
+      sourceNodeParent.left = isSourceFirst ? sourceNode : targetNode;
+      sourceNodeParent.right = isSourceFirst ? targetNode : sourceNode;
       this.syncLayoutRects();
       return;
     }
@@ -320,14 +320,14 @@ export class LayoutManager {
     targetNode: LayoutNode;
     ratio?: number;
   }): SplitNode {
-    const { orientation, sourceIsLeft } = directionToSplitConfig(direction);
+    const { orientation, isSourceFirst } = directionToSplitConfig(direction);
     return {
       id: generateId(),
       type: "split",
       orientation,
       ratio,
-      left: sourceIsLeft ? sourceNode : targetNode,
-      right: sourceIsLeft ? targetNode : sourceNode,
+      left: isSourceFirst ? sourceNode : targetNode,
+      right: isSourceFirst ? targetNode : sourceNode,
     };
   }
 
