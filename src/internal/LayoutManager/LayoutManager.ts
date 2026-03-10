@@ -15,6 +15,7 @@ import { calculateLayoutRects } from "./calculateLayoutRects";
 import { calculateMinSize } from "./calculateMinSize";
 import { findClosestDirection } from "./findClosestDirection";
 import { LayoutTree } from "./LayoutTree";
+import { directionToSplitConfig } from "./types";
 import type { Direction, Point, Rect, Size } from "./types";
 
 export class LayoutManager {
@@ -155,25 +156,10 @@ export class LayoutManager {
     const direction = findClosestDirection(targetRect, point);
 
     if (sourceNodeSibling.id === targetId) {
-      if (direction === "left") {
-        sourceNodeParent.orientation = "horizontal";
-        sourceNodeParent.left = sourceNode;
-        sourceNodeParent.right = targetNode;
-      } else if (direction === "right") {
-        sourceNodeParent.orientation = "horizontal";
-        sourceNodeParent.left = targetNode;
-        sourceNodeParent.right = sourceNode;
-      } else if (direction === "top") {
-        sourceNodeParent.orientation = "vertical";
-        sourceNodeParent.left = sourceNode;
-        sourceNodeParent.right = targetNode;
-      } else if (direction === "bottom") {
-        sourceNodeParent.orientation = "vertical";
-        sourceNodeParent.left = targetNode;
-        sourceNodeParent.right = sourceNode;
-      } else {
-        assertNever(direction);
-      }
+      const { orientation, sourceIsLeft } = directionToSplitConfig(direction);
+      sourceNodeParent.orientation = orientation;
+      sourceNodeParent.left = sourceIsLeft ? sourceNode : targetNode;
+      sourceNodeParent.right = sourceIsLeft ? targetNode : sourceNode;
       this.syncLayoutRects();
       return;
     }
@@ -334,51 +320,15 @@ export class LayoutManager {
     targetNode: LayoutNode;
     ratio?: number;
   }): SplitNode {
-    switch (direction) {
-      case "left": {
-        return {
-          id: generateId(),
-          type: "split",
-          orientation: "horizontal",
-          ratio,
-          left: sourceNode,
-          right: targetNode,
-        };
-      }
-      case "right": {
-        return {
-          id: generateId(),
-          type: "split",
-          orientation: "horizontal",
-          ratio,
-          left: targetNode,
-          right: sourceNode,
-        };
-      }
-      case "top": {
-        return {
-          id: generateId(),
-          type: "split",
-          orientation: "vertical",
-          ratio,
-          left: sourceNode,
-          right: targetNode,
-        };
-      }
-      case "bottom": {
-        return {
-          id: generateId(),
-          type: "split",
-          orientation: "vertical",
-          ratio,
-          left: targetNode,
-          right: sourceNode,
-        };
-      }
-      default: {
-        assertNever(direction);
-      }
-    }
+    const { orientation, sourceIsLeft } = directionToSplitConfig(direction);
+    return {
+      id: generateId(),
+      type: "split",
+      orientation,
+      ratio,
+      left: sourceIsLeft ? sourceNode : targetNode,
+      right: sourceIsLeft ? targetNode : sourceNode,
+    };
   }
 
   private findRect(id: string) {
