@@ -1,5 +1,6 @@
 import type { LayoutNode } from "../../types";
 import { assertNever } from "../assertNever";
+import { buildSize, getAxis } from "./types";
 import type { Size } from "./types";
 
 export function calculateMinSize(node: LayoutNode, gap: number): Size {
@@ -11,20 +12,13 @@ export function calculateMinSize(node: LayoutNode, gap: number): Size {
   } else if (node.type === "split") {
     const leftSize = calculateMinSize(node.left, gap);
     const rightSize = calculateMinSize(node.right, gap);
+    const axis = getAxis(node.orientation);
 
-    if (node.orientation === "horizontal") {
-      return {
-        width: leftSize.width + gap + rightSize.width,
-        height: Math.max(leftSize.height, rightSize.height),
-      };
-    } else if (node.orientation === "vertical") {
-      return {
-        width: Math.max(leftSize.width, rightSize.width),
-        height: leftSize.height + gap + rightSize.height,
-      };
-    } else {
-      assertNever(node.orientation);
-    }
+    return buildSize(
+      axis,
+      leftSize[axis.size] + gap + rightSize[axis.size],
+      Math.max(leftSize[axis.crossSize], rightSize[axis.crossSize]),
+    );
   } else {
     assertNever(node);
   }
