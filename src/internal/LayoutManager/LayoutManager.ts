@@ -34,9 +34,6 @@ function directionToSplitConfig(direction: Direction): {
 }
 
 export class LayoutManager {
-  private readonly MIN_RESIZE_RATIO = 0.1;
-  private readonly MAX_RESIZE_RATIO = 0.9;
-
   private _tree: LayoutTree;
   private _options: Required<LayoutManagerOptions> & { size: Size };
   private _listeners = new Set<() => void>();
@@ -48,6 +45,8 @@ export class LayoutManager {
       gap: options?.gap ?? 10,
       size: { width: 0, height: 0 },
       placementStrategy: options?.placementStrategy ?? equalWidthRightStrategy,
+      minResizeRatio: options?.minResizeRatio ?? 0.1,
+      maxResizeRatio: options?.maxResizeRatio ?? 0.9,
     };
 
     this._layoutRects = calculateLayoutRects(root, this._options);
@@ -126,11 +125,11 @@ export class LayoutManager {
   movePanel({
     sourceId,
     targetId,
-    point,
+    direction,
   }: {
     sourceId: string;
     targetId: string;
-    point: Point;
+    direction: Direction;
   }) {
     if (this._tree.root === null) {
       throw new Error("Root node is null");
@@ -164,11 +163,6 @@ export class LayoutManager {
       sourceNodeParent.left.id === sourceId
         ? sourceNodeParent.right
         : sourceNodeParent.left;
-
-    const targetRect = this.findRect(targetId);
-    invariant(targetRect !== null);
-    invariant(targetRect.type === "panel");
-    const direction = findClosestDirection(targetRect, point);
 
     if (sourceNodeSibling.id === targetId) {
       const { orientation, isSourceFirst } = directionToSplitConfig(direction);
@@ -290,27 +284,17 @@ export class LayoutManager {
     this.syncLayoutRects();
   }
 
-  calculateDropTarget({
-    draggedPanelId,
-    targetPanelId,
+  getDropDirection({
+    panelId,
     point,
   }: {
-    draggedPanelId: string;
-    targetPanelId: string;
+    panelId: string;
     point: Point;
-  }) {
-    invariant(
-      draggedPanelId !== targetPanelId,
-      "Dragged panel id is not the same as target panel id",
-    );
-
-    const targetRect = this.findRect(targetPanelId);
+  }): Direction {
+    const targetRect = this.findRect(panelId);
     invariant(targetRect !== null && targetRect.type === "panel");
 
-    return {
-      id: targetPanelId,
-      direction: findClosestDirection(targetRect, point),
-    };
+    return findClosestDirection(targetRect, point);
   }
 
   private emit() {
@@ -402,8 +386,8 @@ export class LayoutManager {
       const leftWidth = point.x - leftRect.x;
       const ratio = clamp(
         leftWidth / (leftRect.width + splitRect.width + rightRect.width),
-        this.MIN_RESIZE_RATIO,
-        this.MAX_RESIZE_RATIO,
+        this._options.minResizeRatio,
+        this._options.maxResizeRatio,
       );
 
       const totalWidth = leftRect.width + this._options.gap + rightRect.width;
@@ -428,8 +412,8 @@ export class LayoutManager {
       const topHeight = point.y - topRect.y;
       const ratio = clamp(
         topHeight / (topRect.height + splitRect.height + bottomRect.height),
-        this.MIN_RESIZE_RATIO,
-        this.MAX_RESIZE_RATIO,
+        this._options.minResizeRatio,
+        this._options.maxResizeRatio,
       );
 
       const totalHeight =

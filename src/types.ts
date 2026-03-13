@@ -13,6 +13,18 @@ export interface LayoutManagerOptions {
    * Defaults to `equalWidthRightStrategy` if not provided.
    */
   placementStrategy?: PlacementStrategy;
+  /**
+   * Minimum ratio for resizing panels.
+   * Prevents a panel from being resized below this ratio of the split area.
+   * Value between 0 and 1. Defaults to `0.1`.
+   */
+  minResizeRatio?: number;
+  /**
+   * Maximum ratio for resizing panels.
+   * Prevents a panel from being resized above this ratio of the split area.
+   * Value between 0 and 1. Defaults to `0.9`.
+   */
+  maxResizeRatio?: number;
 }
 
 export interface PanelLayoutRect extends Pick<PanelNode, "id" | "type">, Rect {}
