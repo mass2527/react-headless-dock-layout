@@ -310,7 +310,7 @@ describe("LayoutManager", () => {
         layoutManager.movePanel({
           sourceId: "source",
           targetId: "target",
-          point: { x: 0, y: 0 },
+          direction: "left",
         }),
       ).toThrowError("Root node is null");
     });
@@ -324,7 +324,7 @@ describe("LayoutManager", () => {
         layoutManager.movePanel({
           sourceId: "source",
           targetId: "target",
-          point: { x: 0, y: 0 },
+          direction: "left",
         }),
       ).toThrowError("Root node is not a split node");
     });
@@ -348,7 +348,7 @@ describe("LayoutManager", () => {
         layoutManager.movePanel({
           sourceId: "nonexistent",
           targetId: "target",
-          point: { x: 0, y: 0 },
+          direction: "left",
         }),
       ).toThrowError("Node with id nonexistent not found");
     });
@@ -382,7 +382,7 @@ describe("LayoutManager", () => {
         layoutManager.movePanel({
           sourceId: "left",
           targetId: "target",
-          point: { x: 0, y: 0 },
+          direction: "left",
         }),
       ).toThrowError("Node with id left is not a panel node");
     });
@@ -406,7 +406,7 @@ describe("LayoutManager", () => {
         layoutManager.movePanel({
           sourceId: "left",
           targetId: "nonexistent",
-          point: { x: 0, y: 0 },
+          direction: "left",
         }),
       ).toThrowError("Node with id nonexistent not found");
     });
@@ -440,7 +440,7 @@ describe("LayoutManager", () => {
         layoutManager.movePanel({
           sourceId: "left",
           targetId: "right",
-          point: { x: 0, y: 0 },
+          direction: "left",
         }),
       ).toThrowError("Node with id right is not a panel node");
     });
@@ -465,7 +465,7 @@ describe("LayoutManager", () => {
       layoutManager.movePanel({
         sourceId: "right",
         targetId: "left",
-        point: { x: 0, y: 50 },
+        direction: "left",
       });
       expect(layoutManager.root).toEqual<LayoutNode>({
         id: "root",
@@ -513,7 +513,7 @@ describe("LayoutManager", () => {
       layoutManager.movePanel({
         sourceId: "left",
         targetId: "right-left",
-        point: { x: 60, y: 8 },
+        direction: "top",
       });
 
       expect(layoutManager.root).toEqual<LayoutNode>({
@@ -582,7 +582,7 @@ describe("LayoutManager", () => {
       layoutManager.movePanel({
         sourceId: "left-left",
         targetId: "right-left",
-        point: { x: 60, y: 8 },
+        direction: "top",
       });
       expect(layoutManager.root).toEqual<LayoutNode>({
         id: "root",

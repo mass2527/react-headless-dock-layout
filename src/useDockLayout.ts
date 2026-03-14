@@ -180,15 +180,14 @@ export function useDockLayout<T extends HTMLElement>(
               return;
             }
 
-            const dropTarget = layoutManager.calculateDropTarget({
-              draggedPanelId: draggingRect.id,
-              targetPanelId: rect.id,
+            const direction = layoutManager.getDropDirection({
+              panelId: rect.id,
               point: {
                 x: event.clientX,
                 y: event.clientY,
               },
             });
-            setDropTarget(dropTarget);
+            setDropTarget({ id: rect.id, direction });
           },
           onPointerUp: (event: ReactPointerEvent<T>) => {
             if (draggingRect === null) {
@@ -201,13 +200,17 @@ export function useDockLayout<T extends HTMLElement>(
               return;
             }
 
-            layoutManager.movePanel({
-              sourceId: draggingRect.id,
-              targetId: rect.id,
+            const direction = layoutManager.getDropDirection({
+              panelId: rect.id,
               point: {
                 x: event.clientX,
                 y: event.clientY,
               },
+            });
+            layoutManager.movePanel({
+              sourceId: draggingRect.id,
+              targetId: rect.id,
+              direction,
             });
             setDraggingRect(null);
             setDropTarget(null);
