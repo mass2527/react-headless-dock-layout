@@ -1,6 +1,7 @@
-import type { LayoutManagerOptions, LayoutNode, LayoutRect } from "../../types";
+import type { LayoutManagerOptions, LayoutNode, LayoutRect, SplitLayoutRect } from "../../types";
 import { assertNever } from "../assertNever";
 import type { Rect, Size } from "./types";
+import { getAxes } from "./types";
 
 export function calculateLayoutRects(
   root: LayoutNode | null,
@@ -14,55 +15,30 @@ export function calculateLayoutRects(
 
   const traverse = (node: LayoutNode, rect: Rect) => {
     if (node.type === "split") {
-      if (node.orientation === "horizontal") {
-        rects.push({
-          id: node.id,
-          type: "split",
-          orientation: node.orientation,
-          x: Math.round(rect.x + rect.width * node.ratio - options.gap / 2),
-          y: Math.round(rect.y),
-          width: Math.round(options.gap),
-          height: Math.round(rect.height),
-        });
+      const { primary, cross } = getAxes(node.orientation);
 
-        traverse(node.left, {
-          x: rect.x,
-          y: rect.y,
-          width: rect.width * node.ratio - options.gap / 2,
-          height: rect.height,
-        });
-        traverse(node.right, {
-          x: rect.x + rect.width * node.ratio + options.gap / 2,
-          y: rect.y,
-          width: rect.width * (1 - node.ratio) - options.gap / 2,
-          height: rect.height,
-        });
-      } else if (node.orientation === "vertical") {
-        rects.push({
-          id: node.id,
-          type: "split",
-          orientation: node.orientation,
-          x: Math.round(rect.x),
-          y: Math.round(rect.y + rect.height * node.ratio - options.gap / 2),
-          width: Math.round(rect.width),
-          height: Math.round(options.gap),
-        });
+      rects.push({
+        id: node.id,
+        type: "split",
+        orientation: node.orientation,
+        [primary.pos]: Math.round(rect[primary.pos] + rect[primary.size] * node.ratio - options.gap / 2),
+        [cross.pos]: Math.round(rect[cross.pos]),
+        [primary.size]: Math.round(options.gap),
+        [cross.size]: Math.round(rect[cross.size]),
+      } as SplitLayoutRect);
 
-        traverse(node.left, {
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height * node.ratio - options.gap / 2,
-        });
-        traverse(node.right, {
-          x: rect.x,
-          y: rect.y + rect.height * node.ratio + options.gap / 2,
-          width: rect.width,
-          height: rect.height * (1 - node.ratio) - options.gap / 2,
-        });
-      } else {
-        assertNever(node.orientation);
-      }
+      traverse(node.left, {
+        [primary.pos]: rect[primary.pos],
+        [cross.pos]: rect[cross.pos],
+        [primary.size]: rect[primary.size] * node.ratio - options.gap / 2,
+        [cross.size]: rect[cross.size],
+      } as Rect);
+      traverse(node.right, {
+        [primary.pos]: rect[primary.pos] + rect[primary.size] * node.ratio + options.gap / 2,
+        [cross.pos]: rect[cross.pos],
+        [primary.size]: rect[primary.size] * (1 - node.ratio) - options.gap / 2,
+        [cross.size]: rect[cross.size],
+      } as Rect);
     } else if (node.type === "panel") {
       rects.push({
         id: node.id,
