@@ -8,9 +8,11 @@ import type {
 } from "../../types";
 import { assertNever } from "../assertNever";
 import { clamp } from "../clamp";
+import { findNode } from "../findNode";
 import { findParentNode } from "../findParentNode";
 import { generateId } from "../generateId";
 import { invariant } from "../invariant";
+import { replaceChildNode } from "../replaceChildNode";
 
 import { calculateLayoutRects } from "./calculateLayoutRects";
 import { calculateMinSize } from "./calculateMinSize";
@@ -83,7 +85,7 @@ export class LayoutManager {
       throw new Error("Root node is null");
     }
 
-    const node = this.findNode(id);
+    const node = findNode(this._root, id);
 
     if (node === null) {
       throw new Error(`Node with id ${id} not found`);
@@ -99,7 +101,7 @@ export class LayoutManager {
       return;
     }
 
-    const parentNode = this.findParentNode(id);
+    const parentNode = findParentNode(this._root, id);
     invariant(parentNode !== null, "Parent node is not null");
 
     const siblingNode =
@@ -111,10 +113,10 @@ export class LayoutManager {
       return;
     }
 
-    const grandParentNode = this.findParentNode(parentNode.id);
+    const grandParentNode = findParentNode(this._root, parentNode.id);
     invariant(grandParentNode !== null, "Grand parent node is not null");
 
-    this.replaceChildNode({
+    replaceChildNode({
       parent: grandParentNode,
       oldChildId: parentNode.id,
       newChild: siblingNode,
@@ -138,7 +140,7 @@ export class LayoutManager {
       throw new Error("Root node is not a split node");
     }
 
-    const sourceNode = this.findNode(sourceId);
+    const sourceNode = findNode(this._root, sourceId);
 
     if (sourceNode === null) {
       throw new Error(`Node with id ${sourceId} not found`);
@@ -147,10 +149,10 @@ export class LayoutManager {
       throw new Error(`Node with id ${sourceId} is not a panel node`);
     }
 
-    const sourceNodeParent = this.findParentNode(sourceId);
+    const sourceNodeParent = findParentNode(this._root, sourceId);
     invariant(sourceNodeParent !== null);
 
-    const targetNode = this.findNode(targetId);
+    const targetNode = findNode(this._root, targetId);
 
     if (targetNode === null) {
       throw new Error(`Node with id ${targetId} not found`);
@@ -173,20 +175,20 @@ export class LayoutManager {
       return;
     }
 
-    const sourceNodeGrandParent = this.findParentNode(
+    const sourceNodeGrandParent = findParentNode(this._root,
       sourceNodeParent.id,
     );
     if (sourceNodeGrandParent === null) {
       this._root = sourceNodeSibling;
     } else {
-      this.replaceChildNode({
+      replaceChildNode({
         parent: sourceNodeGrandParent,
         oldChildId: sourceNodeParent.id,
         newChild: sourceNodeSibling,
       });
     }
 
-    const targetNodeParent = this.findParentNode(targetId);
+    const targetNodeParent = findParentNode(this._root, targetId);
     invariant(targetNodeParent !== null);
     const splitNode = this.createSplitNode({
       direction,
@@ -194,7 +196,7 @@ export class LayoutManager {
       targetNode,
     });
 
-    this.replaceChildNode({
+    replaceChildNode({
       parent: targetNodeParent,
       oldChildId: targetId,
       newChild: splitNode,
@@ -218,7 +220,7 @@ export class LayoutManager {
       throw new Error(`Rect with id ${id} is not a split node`);
     }
 
-    const splitNode = this.findNode(id);
+    const splitNode = findNode(this._root, id);
     invariant(splitNode !== null, "Split node is not null");
     invariant(splitNode.type === "split", "Split node is a split");
 
@@ -258,13 +260,13 @@ export class LayoutManager {
       return;
     }
 
-    const targetNode = this.findNode(targetId);
+    const targetNode = findNode(this._root, targetId);
 
     if (targetNode === null) {
       throw new Error(`Node with id ${targetId} not found`);
     }
 
-    const targetNodeParent = this.findParentNode(targetId);
+    const targetNodeParent = findParentNode(this._root, targetId);
     invariant(targetNodeParent !== null, "Target node parent is not null");
 
     const splitNode = this.createSplitNode({
@@ -276,7 +278,7 @@ export class LayoutManager {
       targetNode,
       ratio,
     });
-    this.replaceChildNode({
+    replaceChildNode({
       parent: targetNodeParent,
       oldChildId: targetId,
       newChild: splitNode,
@@ -295,60 +297,6 @@ export class LayoutManager {
     invariant(targetRect !== null && targetRect.type === "panel");
 
     return findClosestDirection(targetRect, point);
-  }
-
-  private findNode(id: string): LayoutNode | null {
-    if (this._root === null) {
-      return null;
-    }
-
-    return this.findNodeInSubTree(id, this._root);
-  }
-
-  private findNodeInSubTree(id: string, node: LayoutNode): LayoutNode | null {
-    if (id === node.id) {
-      return node;
-    }
-
-    if (node.type === "panel") {
-      return null;
-    } else if (node.type === "split") {
-      return (
-        this.findNodeInSubTree(id, node.left) ??
-        this.findNodeInSubTree(id, node.right)
-      );
-    } else {
-      assertNever(node);
-    }
-  }
-
-  private findParentNode(id: string) {
-    return findParentNode(this._root, id);
-  }
-
-  private replaceChildNode({
-    parent,
-    oldChildId,
-    newChild,
-  }: {
-    parent: SplitNode;
-    oldChildId: string;
-    newChild: LayoutNode;
-  }) {
-    const oldChildNode = this.findNode(oldChildId);
-    if (oldChildNode === null) {
-      throw new Error(`Child node with id ${oldChildId} not found`);
-    }
-
-    if (parent.left.id === oldChildId) {
-      parent.left = newChild;
-    } else if (parent.right.id === oldChildId) {
-      parent.right = newChild;
-    } else {
-      throw new Error(
-        `Child node with id ${oldChildId} is not a child of the parent node with id ${parent.id}`,
-      );
-    }
   }
 
   private emit() {
@@ -389,7 +337,7 @@ export class LayoutManager {
   }
 
   private getSurroundingRect(id: string): Rect {
-    const node = this.findNode(id);
+    const node = findNode(this._root, id);
     invariant(node !== null, "Node is not null");
 
     if (node.type === "panel") {
