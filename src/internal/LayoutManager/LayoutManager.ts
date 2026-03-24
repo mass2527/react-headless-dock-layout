@@ -15,7 +15,7 @@ import { calculateLayoutRects } from "./calculateLayoutRects";
 import { calculateMinSize } from "./calculateMinSize";
 import { findClosestDirection } from "./findClosestDirection";
 import { LayoutTree } from "./LayoutTree";
-import type { Direction, Orientation, Point, Rect, Size } from "./types";
+import { AXIS_CONFIG, type Direction, type Orientation, type Point, type Rect, type Size } from "./types";
 
 function directionToSplitConfig(direction: Direction): {
   orientation: Orientation;
@@ -352,24 +352,13 @@ export class LayoutManager {
     } else if (node.type === "split") {
       const leftRect = this.getSurroundingRect(node.left.id);
       const rightRect = this.getSurroundingRect(node.right.id);
+      const { length, crossLength } = AXIS_CONFIG[node.orientation];
 
-      if (node.orientation === "horizontal") {
-        return {
-          x: leftRect.x,
-          y: leftRect.y,
-          width: leftRect.width + this._options.gap + rightRect.width,
-          height: leftRect.height,
-        };
-      } else if (node.orientation === "vertical") {
-        return {
-          x: leftRect.x,
-          y: leftRect.y,
-          width: leftRect.width,
-          height: leftRect.height + this._options.gap + rightRect.height,
-        };
-      } else {
-        assertNever(node.orientation);
-      }
+      return {
+        ...leftRect,
+        [length]: leftRect[length] + this._options.gap + rightRect[length],
+        [crossLength]: leftRect[crossLength],
+      } as Rect;
     } else {
       assertNever(node);
     }
@@ -380,61 +369,26 @@ export class LayoutManager {
     splitRect: SplitLayoutRect,
     point: Point,
   ): number {
-    if (splitRect.orientation === "horizontal") {
-      const leftRect = this.getSurroundingRect(splitNode.left.id);
-      const rightRect = this.getSurroundingRect(splitNode.right.id);
-      const leftWidth = point.x - leftRect.x;
-      const ratio = clamp(
-        leftWidth / (leftRect.width + splitRect.width + rightRect.width),
-        this._options.minResizeRatio,
-        this._options.maxResizeRatio,
-      );
+    const { position, length } = AXIS_CONFIG[splitRect.orientation];
+    const halfGap = this._options.gap / 2;
 
-      const totalWidth = leftRect.width + this._options.gap + rightRect.width;
+    const firstRect = this.getSurroundingRect(splitNode.left.id);
+    const secondRect = this.getSurroundingRect(splitNode.right.id);
+    const firstLength = point[position] - firstRect[position];
+    const ratio = clamp(
+      firstLength / (firstRect[length] + splitRect[length] + secondRect[length]),
+      this._options.minResizeRatio,
+      this._options.maxResizeRatio,
+    );
 
-      const minLeftWidth = calculateMinSize(
-        splitNode.left,
-        this._options.gap,
-      ).width;
-      const minRatio = (minLeftWidth + this._options.gap / 2) / totalWidth;
+    const totalLength = firstRect[length] + this._options.gap + secondRect[length];
 
-      const minRightWidth = calculateMinSize(
-        splitNode.right,
-        this._options.gap,
-      ).width;
-      const maxRatio =
-        (totalWidth - (minRightWidth + this._options.gap / 2)) / totalWidth;
+    const minFirstLength = calculateMinSize(splitNode.left, this._options.gap)[length];
+    const minRatio = (minFirstLength + halfGap) / totalLength;
 
-      return clamp(ratio, minRatio, maxRatio);
-    } else if (splitRect.orientation === "vertical") {
-      const topRect = this.getSurroundingRect(splitNode.left.id);
-      const bottomRect = this.getSurroundingRect(splitNode.right.id);
-      const topHeight = point.y - topRect.y;
-      const ratio = clamp(
-        topHeight / (topRect.height + splitRect.height + bottomRect.height),
-        this._options.minResizeRatio,
-        this._options.maxResizeRatio,
-      );
+    const minSecondLength = calculateMinSize(splitNode.right, this._options.gap)[length];
+    const maxRatio = (totalLength - (minSecondLength + halfGap)) / totalLength;
 
-      const totalHeight =
-        topRect.height + this._options.gap + bottomRect.height;
-
-      const minTopHeight = calculateMinSize(
-        splitNode.left,
-        this._options.gap,
-      ).height;
-      const minRatio = (minTopHeight + this._options.gap / 2) / totalHeight;
-
-      const minBottomHeight = calculateMinSize(
-        splitNode.right,
-        this._options.gap,
-      ).height;
-      const maxRatio =
-        (totalHeight - (minBottomHeight + this._options.gap / 2)) / totalHeight;
-
-      return clamp(ratio, minRatio, maxRatio);
-    } else {
-      assertNever(splitRect.orientation);
-    }
+    return clamp(ratio, minRatio, maxRatio);
   }
 }
