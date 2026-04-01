@@ -2,15 +2,22 @@ import { assertNever } from "./internal/assertNever";
 import type { Direction } from "./internal/LayoutManager/types";
 import type { LayoutNode } from "./types";
 
+/**
+ * Determines where a newly added panel is placed in the existing layout tree.
+ * Implement this interface to customize panel insertion behavior
+ * (e.g., always add below, add in a round-robin pattern, etc.).
+ */
 export interface PlacementStrategy {
   /**
-   * Calculates the placement for a new panel based on the current layout tree.
+   * Given the current layout tree, decide which existing node to split,
+   * in which direction, and how to divide the space.
    *
-   * @param root - The root node of the current layout tree.
-   * @returns Placement configuration specifying:
-   *   - `targetId`: The ID of the panel that will be split to make room for the new panel
-   *   - `direction`: The direction in which to split (`"top"`, `"bottom"`, `"left"`, or `"right"`)
-   *   - `ratio`: The ratio for dividing space (0-1, where 0.5 is equal split)
+   * @param root - The current layout tree (never null — the layout engine
+   *   handles the empty-layout case before calling this).
+   * @returns
+   *   - `targetId` — id of the node that will be split to accommodate the new panel.
+   *   - `direction` — which side of the target the new panel appears on.
+   *   - `ratio` — fraction of space kept by the existing content (0–1).
    */
   getPlacementOnAdd(root: LayoutNode): {
     targetId: string;
@@ -20,9 +27,8 @@ export interface PlacementStrategy {
 }
 
 /**
- * Default placement strategy that adds panels to the right with equal widths.
- * New panels are added by splitting the root panel horizontally, maintaining equal widths
- * for all panels.
+ * Appends every new panel to the right edge of the layout and adjusts ratios
+ * so that all top-level columns share equal width.
  */
 export const equalWidthRightStrategy: PlacementStrategy = {
   getPlacementOnAdd(root) {
